@@ -260,10 +260,10 @@ const ManageBookings = () => {
                     User
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Flight
+                    Type / Flight
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Route
+                    Details
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Date
@@ -292,10 +292,13 @@ const ManageBookings = () => {
                   </tr>
                 ) : (
                   filteredBookings.map((booking) => {
+                    const isPackage = booking.bookingType === "package";
                     const flightInfo = booking.flightId || {};
+                    const packageInfo = booking.packageOfferId || {};
                     const userName = booking.userId
                       ? booking.userId.name || booking.userId.email || "Unknown"
                       : "Unknown User";
+                    const userImage = booking.userId?.profileImage;
 
                     return (
                       <tr
@@ -307,17 +310,49 @@ const ManageBookings = () => {
                             #{booking._id?.slice(-8) || "N/A"}
                           </span>
                         </td>
-                        <td className="px-4 py-4 text-gray-900">{userName}</td>
+                        <td className="px-4 py-4 text-gray-900">
+                          <div className="flex items-center gap-2">
+                            {userImage ? (
+                              <img
+                                src={userImage}
+                                alt={userName}
+                                className="w-8 h-8 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center text-xs font-bold">
+                                {userName.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            {userName}
+                          </div>
+                        </td>
                         <td className="px-4 py-4">
-                          <span className="font-semibold text-gray-900">
-                            <i className="fas fa-plane text-primary me-2"></i>
-                            {flightInfo.number || "N/A"}
-                          </span>
+                          {isPackage ? (
+                            <span className="font-semibold text-gray-900">
+                              <i className="fas fa-tags text-purple-600 me-2"></i>
+                              {packageInfo.name || "Package Offer"}
+                            </span>
+                          ) : (
+                            <span className="font-semibold text-gray-900">
+                              <i className="fas fa-plane text-primary me-2"></i>
+                              {flightInfo.number || "N/A"}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-4 text-gray-900">
-                          {flightInfo.origin || "N/A"}{" "}
-                          <i className="fas fa-arrow-right text-gray-400 mx-2"></i>{" "}
-                          {flightInfo.destination || "N/A"}
+                          {isPackage ? (
+                            <span>
+                              <i className="fas fa-box-open text-gray-400 me-2"></i>
+                              {packageInfo.category || "Package"} -{" "}
+                              {packageInfo.duration || "N/A"}
+                            </span>
+                          ) : (
+                            <span>
+                              {flightInfo.origin || "N/A"}{" "}
+                              <i className="fas fa-arrow-right text-gray-400 mx-2"></i>{" "}
+                              {flightInfo.destination || "N/A"}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-4 text-gray-900">
                           {flightInfo.departureTime
@@ -480,7 +515,7 @@ const ManageBookings = () => {
                         Number of Passengers
                       </label>
                       <p className="text-gray-900">
-                        {selectedBooking.passengers?.length || 0}
+                        {selectedBooking.passengerDetails?.length || 0}
                       </p>
                     </div>
                   </div>
@@ -528,75 +563,137 @@ const ManageBookings = () => {
                   </div>
                 </div>
 
-                {/* Flight Information */}
-                {selectedBooking.flightId && (
-                  <div className="bg-purple-50 rounded-lg p-4">
-                    <h4 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
-                      <i className="fas fa-plane text-purple-600 mr-2"></i>
-                      Flight Information
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm text-gray-600 font-semibold">
-                          Flight Number
-                        </label>
-                        <p className="text-gray-900 font-bold">
-                          {selectedBooking.flightId.number || "N/A"}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm text-gray-600 font-semibold">
-                          Airline
-                        </label>
-                        <p className="text-gray-900">
-                          {selectedBooking.flightId.airline || "N/A"}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm text-gray-600 font-semibold">
-                          Route
-                        </label>
-                        <p className="text-gray-900">
-                          {selectedBooking.flightId.origin || "N/A"}
-                          <i className="fas fa-arrow-right text-gray-400 mx-2"></i>
-                          {selectedBooking.flightId.destination || "N/A"}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm text-gray-600 font-semibold">
-                          Departure Date
-                        </label>
-                        <p className="text-gray-900">
-                          {selectedBooking.flightId.departureTime
-                            ? new Date(
-                                selectedBooking.flightId.departureTime
-                              ).toLocaleString()
-                            : "N/A"}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm text-gray-600 font-semibold">
-                          Arrival Date
-                        </label>
-                        <p className="text-gray-900">
-                          {selectedBooking.flightId.arrivalTime
-                            ? new Date(
-                                selectedBooking.flightId.arrivalTime
-                              ).toLocaleString()
-                            : "N/A"}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm text-gray-600 font-semibold">
-                          Class
-                        </label>
-                        <p className="text-gray-900 capitalize">
-                          {selectedBooking.flightId.class || "N/A"}
-                        </p>
+                {/* Package Information */}
+                {selectedBooking.bookingType === "package" &&
+                  selectedBooking.packageOfferId && (
+                    <div className="bg-purple-50 rounded-lg p-4">
+                      <h4 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                        <i className="fas fa-tags text-purple-600 mr-2"></i>
+                        Package Offer Information
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm text-gray-600 font-semibold">
+                            Package Name
+                          </label>
+                          <p className="text-gray-900 font-bold">
+                            {selectedBooking.packageOfferId.name || "N/A"}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-gray-600 font-semibold">
+                            Category
+                          </label>
+                          <p className="text-gray-900">
+                            {selectedBooking.packageOfferId.category || "N/A"}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-gray-600 font-semibold">
+                            Duration
+                          </label>
+                          <p className="text-gray-900">
+                            {selectedBooking.packageOfferId.duration || "N/A"}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-gray-600 font-semibold">
+                            Price Unit
+                          </label>
+                          <p className="text-gray-900 capitalize">
+                            {selectedBooking.packageOfferId.priceUnit || "N/A"}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-gray-600 font-semibold">
+                            Number of Persons
+                          </label>
+                          <p className="text-gray-900">
+                            {selectedBooking.personCount || "N/A"}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-gray-600 font-semibold">
+                            Base Price
+                          </label>
+                          <p className="text-gray-900">
+                            ${selectedBooking.packageOfferId.price || "N/A"}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
+
+                {/* Flight Information */}
+                {selectedBooking.bookingType === "flight" &&
+                  selectedBooking.flightId && (
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <h4 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                        <i className="fas fa-plane text-blue-600 mr-2"></i>
+                        Flight Information
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm text-gray-600 font-semibold">
+                            Flight Number
+                          </label>
+                          <p className="text-gray-900 font-bold">
+                            {selectedBooking.flightId.number || "N/A"}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-gray-600 font-semibold">
+                            Airline
+                          </label>
+                          <p className="text-gray-900">
+                            {selectedBooking.flightId.airline || "N/A"}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-gray-600 font-semibold">
+                            Route
+                          </label>
+                          <p className="text-gray-900">
+                            {selectedBooking.flightId.origin || "N/A"}
+                            <i className="fas fa-arrow-right text-gray-400 mx-2"></i>
+                            {selectedBooking.flightId.destination || "N/A"}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-gray-600 font-semibold">
+                            Departure Date
+                          </label>
+                          <p className="text-gray-900">
+                            {selectedBooking.flightId.departureTime
+                              ? new Date(
+                                  selectedBooking.flightId.departureTime
+                                ).toLocaleString()
+                              : "N/A"}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-gray-600 font-semibold">
+                            Arrival Date
+                          </label>
+                          <p className="text-gray-900">
+                            {selectedBooking.flightId.arrivalTime
+                              ? new Date(
+                                  selectedBooking.flightId.arrivalTime
+                                ).toLocaleString()
+                              : "N/A"}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-gray-600 font-semibold">
+                            Class
+                          </label>
+                          <p className="text-gray-900 capitalize">
+                            {selectedBooking.flightId.class || "N/A"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                 {/* Passengers Information */}
                 {selectedBooking.passengers &&

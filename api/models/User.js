@@ -31,6 +31,51 @@ const userSchema = new mongoose.Schema(
       enum: ["user", "admin"],
       default: "user",
     },
+    phone: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    dateOfBirth: {
+      type: String,
+      default: "",
+    },
+    address: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    passport: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    profileImage: {
+      type: String,
+      default: "",
+    },
+    // Account archiving fields
+    isArchived: {
+      type: Boolean,
+      default: false,
+    },
+    archivedAt: {
+      type: Date,
+      default: null,
+    },
+    archiveExpiresAt: {
+      type: Date,
+      default: null,
+    },
+    archiveReason: {
+      type: String,
+      enum: ["self_deleted", "admin_deleted", "inactivity", null],
+      default: null,
+    },
+    deletionFeedback: {
+      type: String,
+      default: "",
+    },
   },
   {
     timestamps: true,

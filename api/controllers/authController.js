@@ -89,6 +89,29 @@ const login = async (req, res) => {
       });
     }
 
+    // Auto-restore if archived within 24 hours
+    if (user.isArchived && user.archiveExpiresAt) {
+      const now = new Date();
+      const expiryTime = new Date(user.archiveExpiresAt);
+
+      // If still within 24-hour window, restore the account
+      if (now < expiryTime) {
+        user.isArchived = false;
+        user.archivedAt = null;
+        user.archiveExpiresAt = null;
+        user.archiveReason = null;
+        user.deletionFeedback = null;
+        await user.save();
+      } else {
+        // Account archive expired, user cannot login
+        return res.status(401).json({
+          success: false,
+          message:
+            "Your account has been permanently deleted. Please contact support to recover.",
+        });
+      }
+    }
+
     // Generate token
     const token = generateToken(user._id);
 
@@ -108,6 +131,11 @@ const login = async (req, res) => {
           name: user.name,
           email: user.email,
           role: user.role,
+          phone: user.phone || "",
+          dateOfBirth: user.dateOfBirth || "",
+          address: user.address || "",
+          passport: user.passport || "",
+          profileImage: user.profileImage || "",
         },
         token,
       },
@@ -165,6 +193,11 @@ const getMe = async (req, res) => {
           name: user.name,
           email: user.email,
           role: user.role,
+          phone: user.phone || "",
+          dateOfBirth: user.dateOfBirth || "",
+          address: user.address || "",
+          passport: user.passport || "",
+          profileImage: user.profileImage || "",
           createdAt: user.createdAt,
         },
       },

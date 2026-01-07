@@ -9,6 +9,7 @@ const getFlights = async (req, res) => {
   try {
     const flights = await Flight.find({
       status: { $in: ["scheduled", "active"] },
+      isArchived: { $ne: true },
     })
       .sort({ departureTime: 1 })
       .exec();
@@ -81,6 +82,14 @@ const createBooking = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Flight ID, passengers, and seat count are required",
+      });
+    }
+
+    // Validate that seat count matches number of passengers
+    if (Array.isArray(passengers) && passengers.length !== seatCount) {
+      return res.status(400).json({
+        success: false,
+        message: `Seat count (${seatCount}) must match number of passengers (${passengers.length})`,
       });
     }
 
@@ -270,6 +279,14 @@ const createPackageBooking = async (req, res) => {
       });
     }
 
+    // Validate that person count matches number of passengers
+    if (Array.isArray(passengers) && passengers.length !== personCount) {
+      return res.status(400).json({
+        success: false,
+        message: `Person count (${personCount}) must match number of passengers (${passengers.length})`,
+      });
+    }
+
     // Check if package offer exists and is available
     const packageOffer = await PackageOffer.findById(packageOfferId);
     if (!packageOffer) {
@@ -348,7 +365,10 @@ const createPackageBooking = async (req, res) => {
 // @access  Private
 const getUserBookings = async (req, res) => {
   try {
-    const bookings = await Booking.find({ userId: req.user.id })
+    const bookings = await Booking.find({
+      userId: req.user.id,
+      isArchived: { $ne: true },
+    })
       .populate(
         "flightId",
         "number origin destination departureTime arrivalTime"
@@ -371,12 +391,58 @@ const getUserBookings = async (req, res) => {
   }
 };
 
+// @desc    Get user's archived/past bookings
+// @route   GET /api/booking/user/past-bookings
+// @access  Private
+const getUserPastBookings = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+
+    const bookings = await Booking.find({
+      userId: req.user.id,
+      isArchived: true,
+    })
+      .populate(
+        "flightId",
+        "number origin destination departureTime arrivalTime airline"
+      )
+      .populate("packageOfferId", "name category price image")
+      .sort({ archivedAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    const total = await Booking.countDocuments({
+      userId: req.user.id,
+      isArchived: true,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: bookings,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Get user past bookings error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching past bookings",
+      error: error.message,
+    });
+  }
+};
+
 export {
   getFlights,
   searchFlights,
   createBooking,
   createPackageBooking,
   getUserBookings,
+  getUserPastBookings,
   getBooking,
   updateBooking,
   cancelBooking,

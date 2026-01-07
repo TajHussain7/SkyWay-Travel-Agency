@@ -4,6 +4,7 @@ import {
   createBooking,
   createPackageBooking,
   getUserBookings,
+  getUserPastBookings,
   getBooking,
   updateBooking,
   cancelBooking,
@@ -37,19 +38,14 @@ router.post("/create", createBooking);
 router.post("/package/create", createPackageBooking);
 
 // @route   GET /api/booking/user/my-bookings
-// @desc    Get user's bookings
+// @desc    Get user's active bookings
 // @access  Private
 router.get("/user/my-bookings", getUserBookings);
 
-// @route   POST /api/booking/package/create
-// @desc    Create package booking
+// @route   GET /api/booking/user/past-bookings
+// @desc    Get user's archived/past bookings
 // @access  Private
-router.post("/package/create", createPackageBooking);
-
-// @route   GET /api/booking/user/my-bookings
-// @desc    Get user's bookings
-// @access  Private
-router.get("/user/my-bookings", getUserBookings);
+router.get("/user/past-bookings", getUserPastBookings);
 
 // @route   GET /api/booking/:id
 // @desc    Get booking by ID

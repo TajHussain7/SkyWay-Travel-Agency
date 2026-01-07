@@ -1,9 +1,28 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const AdminSidebar = ({ isExpanded, setIsExpanded }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    fetchUser();
+  }, []);
+
+  const fetchUser = async () => {
+    try {
+      const response = await fetch("/api/auth/me", {
+        credentials: "include",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.data?.user || data.user);
+      }
+    } catch (error) {
+      console.error("Error fetching user:", error);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -19,6 +38,18 @@ const AdminSidebar = ({ isExpanded, setIsExpanded }) => {
 
   const isActive = (path) => location.pathname === path;
 
+  const getInitials = () => {
+    if (user?.name) {
+      return user.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2);
+    }
+    return user?.email?.[0]?.toUpperCase() || "A";
+  };
+
   const menuItems = [
     { path: "/admin", icon: "fa-tachometer-alt", label: "Dashboard" },
     { path: "/admin/users", icon: "fa-users", label: "Manage Users" },
@@ -27,6 +58,7 @@ const AdminSidebar = ({ isExpanded, setIsExpanded }) => {
     { path: "/admin/offers", icon: "fa-tags", label: "Manage Offers" },
     { path: "/admin/umrah", icon: "fa-kaaba", label: "Hajj & Umrah" },
     { path: "/admin/locations", icon: "fa-map-marker-alt", label: "Locations" },
+    { path: "/admin/archive", icon: "fa-archive", label: "Archive" },
     { path: "/admin/reports", icon: "fa-chart-line", label: "Reports" },
     { path: "/admin/settings", icon: "fa-cog", label: "Settings" },
   ];
@@ -49,12 +81,46 @@ const AdminSidebar = ({ isExpanded, setIsExpanded }) => {
           </button>
           {isExpanded && <h2 className="text-xl font-bold">SkyWay Admin</h2>}
         </div>
-        {isExpanded && (
-          <span className="inline-block mt-2 px-3 py-1 text-xs font-semibold bg-white bg-opacity-20 rounded-full">
-            Administrator
-          </span>
-        )}
       </div>
+
+      {/* Admin Profile Section */}
+      {user && (
+        <div
+          className={`p-4 border-b border-white border-opacity-20 ${
+            isExpanded ? "" : "flex justify-center"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            {user.profileImage ? (
+              <img
+                src={user.profileImage}
+                alt={user.name}
+                className={`rounded-full object-cover border-2 border-white ${
+                  isExpanded ? "w-12 h-12" : "w-10 h-10"
+                }`}
+              />
+            ) : (
+              <div
+                className={`bg-white text-primary rounded-full flex items-center justify-center font-bold ${
+                  isExpanded ? "w-12 h-12 text-lg" : "w-10 h-10 text-sm"
+                }`}
+              >
+                {getInitials()}
+              </div>
+            )}
+            {isExpanded && (
+              <div className="overflow-hidden">
+                <p className="font-semibold text-sm truncate">
+                  {user.name || "Admin"}
+                </p>
+                <span className="inline-block px-2 py-0.5 text-xs font-semibold bg-white bg-opacity-20 rounded-full">
+                  Administrator
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Navigation Menu */}
       <nav className="py-5 space-y-1">

@@ -87,6 +87,18 @@ const flightSchema = new mongoose.Schema(
       enum: ["scheduled", "active", "cancelled", "completed", "delayed"],
       default: "scheduled",
     },
+    // Archive fields for lifecycle management
+    isArchived: {
+      type: Boolean,
+      default: false,
+    },
+    archivedAt: {
+      type: Date,
+    },
+    archivedReason: {
+      type: String,
+      enum: ["completed", "cancelled", "expired", "manual"],
+    },
   },
   {
     timestamps: true,
@@ -111,7 +123,10 @@ flightSchema.pre("save", function (next) {
 
 // Static method to search flights
 flightSchema.statics.search = async function (origin, destination, date) {
-  const query = { status: { $in: ["scheduled", "active"] } };
+  const query = {
+    status: { $in: ["scheduled", "active"] },
+    isArchived: { $ne: true },
+  };
 
   if (origin) {
     query.origin = { $regex: origin, $options: "i" };

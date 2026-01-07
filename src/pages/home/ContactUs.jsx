@@ -9,13 +9,34 @@ const ContactUs = () => {
     email: "",
     subject: "",
     message: "",
+    type: "general",
   });
   const [errors, setErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [isAccountRecovery, setIsAccountRecovery] = useState(false);
 
   useEffect(() => {
+    // Check if user came from account deletion
+    const contactReason = sessionStorage.getItem("contactReason");
+    const contactEmail = sessionStorage.getItem("contactEmail");
+
+    if (contactReason === "account_recovery") {
+      setIsAccountRecovery(true);
+      setFormData((prev) => ({
+        ...prev,
+        email: contactEmail || "",
+        subject: "Account Recovery Request",
+        type: "account_recovery",
+        message:
+          "I recently deleted my account and would like to recover it. Please help me restore my account.",
+      }));
+      // Clear session storage
+      sessionStorage.removeItem("contactReason");
+      sessionStorage.removeItem("contactEmail");
+    }
+
     // Initialize Google Maps if API is available
     const initMap = () => {
       if (window.google && window.google.maps) {
@@ -65,14 +86,22 @@ const ContactUs = () => {
     setSuccessMessage("");
 
     try {
-      // TODO: Replace with actual contact API endpoint
       const response = await axios.post("/api/contact", formData);
 
       if (response.data.success) {
         setSuccessMessage(
-          "Thank you! Your message has been sent successfully."
+          isAccountRecovery
+            ? "Your account recovery request has been submitted. Our support team will contact you within 24 hours."
+            : "Thank you! Your message has been sent successfully."
         );
-        setFormData({ name: "", email: "", subject: "", message: "" });
+        setFormData({
+          name: "",
+          email: "",
+          subject: "",
+          message: "",
+          type: "general",
+        });
+        setIsAccountRecovery(false);
       }
     } catch (error) {
       setErrors({

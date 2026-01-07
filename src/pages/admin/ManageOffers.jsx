@@ -486,7 +486,7 @@ const ManageOffers = () => {
                 <tbody className="divide-y divide-gray-200">
                   {offers.map((offer) => (
                     <tr key={offer._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
+                      <td className="px-2 py-4">
                         <img
                           src={offer.image}
                           alt={offer.name}
@@ -501,8 +501,8 @@ const ManageOffers = () => {
                           {offer.description}
                         </div>
                       </td>
-                      <td className="px-3 py-4">
-                        <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                      <td className="px-3 py-4 whitespace-nowrap">
+                        <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full whitespace-nowrap">
                           {offer.category}
                         </span>
                       </td>
@@ -516,22 +516,22 @@ const ManageOffers = () => {
                           {offer.priceUnit}
                         </div>
                       </td>
-                      <td className="px-3 py-4">
+                      <td className="px-3 py-4 whitespace-nowrap">
                         {offer.badge && (
                           <span
-                            className={`px-3 py-1 bg-gradient-to-r from-${offer.badgeColor}-400 to-${offer.badgeColor}-600 text-white text-xs font-semibold rounded-full`}
+                            className={`px-3 py-1 bg-gradient-to-r from-${offer.badgeColor}-400 to-${offer.badgeColor}-600 text-white text-xs font-semibold rounded-full whitespace-nowrap`}
                           >
                             {offer.badge}
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-6 py-4 text-center whitespace-nowrap">
                         {offer.isVisible ? (
-                          <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
+                          <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full whitespace-nowrap">
                             <i className="fas fa-eye mr-1"></i> Visible
                           </span>
                         ) : (
-                          <span className="px-3 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded-full">
+                          <span className="px-3 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded-full whitespace-nowrap">
                             <i className="fas fa-eye-slash mr-1"></i> Hidden
                           </span>
                         )}

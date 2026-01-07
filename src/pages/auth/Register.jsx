@@ -4,6 +4,8 @@ import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import axios from "axios";
 
+const API_URL = import.meta.env.VITE_API_URL || "/api";
+
 const Register = () => {
   const [formData, setFormData] = useState({
     name: "",
@@ -45,8 +47,19 @@ const Register = () => {
 
     if (!formData.password) {
       newErrors.password = "Password is required";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters long";
+    } else {
+      // Check password length
+      if (formData.password.length < 8) {
+        newErrors.password = "Password must be at least 8 characters long";
+      }
+      // Check for @ symbol
+      else if (!formData.password.includes("@")) {
+        newErrors.password = "Password must contain @ symbol";
+      }
+      // Check for at least one number
+      else if (!/\d/.test(formData.password)) {
+        newErrors.password = "Password must contain at least one number";
+      }
     }
 
     if (formData.password !== formData.confirmPassword) {
@@ -74,7 +87,7 @@ const Register = () => {
 
     try {
       const response = await axios.post(
-        "/api/auth/register",
+        `${API_URL}/auth/register`,
         {
           name: formData.name,
           email: formData.email,
@@ -214,6 +227,10 @@ const Register = () => {
                           {errors.password}
                         </span>
                       )}
+                      <small className="text-gray-500 text-xs mt-1 block">
+                        Password must be 8+ characters, contain @ symbol and at
+                        least one number
+                      </small>
                     </div>
 
                     <div className="form-group">

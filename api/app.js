@@ -75,6 +75,8 @@ import protectedRoutes from "./routes/protected.js";
 import packageOffersRoutes from "./routes/packageOffers.js";
 import locationsRoutes from "./routes/locations.js";
 import adminLocationsRoutes from "./routes/adminLocations.js";
+import adminArchiveRoutes from "./routes/adminArchive.js";
+import contactRoutes from "./routes/contact.js";
 import errorHandler, { notFoundHandler } from "./middleware/error.js";
 
 // API Routes
@@ -86,9 +88,11 @@ app.use("/api/admin/umrah", adminUmrahRoutes);
 app.use("/api/admin/offers", adminOffersRoutes);
 app.use("/api/admin/reports", adminReportsRoutes);
 app.use("/api/admin/locations", adminLocationsRoutes);
+app.use("/api/admin/archive", adminArchiveRoutes);
 app.use("/api/booking", bookingRoutes);
 app.use("/api/locations", locationsRoutes);
 app.use("/api/package-offers", packageOffersRoutes);
+app.use("/api/contact", contactRoutes);
 
 if (process.env.NODE_ENV === "production") {
   app.get("*", (req, res) => {

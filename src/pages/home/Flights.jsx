@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import BookingSuccessAnimation from "../../components/BookingSuccessAnimation";
+import SuccessToast from "../../components/SuccessToast";
 import axios from "axios";
 import { Dropdown } from "primereact/dropdown";
 import { Calendar } from "primereact/calendar";
@@ -42,7 +43,10 @@ const Flights = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [showBookingSuccess, setShowBookingSuccess] = useState(false);
+  const [showErrorToast, setShowErrorToast] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [selectedFlight, setSelectedFlight] = useState(null);
+  const [lastBookingDetails, setLastBookingDetails] = useState(null);
   const [bookingFormData, setBookingFormData] = useState({
     seatCount: 1,
     passengers: [
@@ -262,16 +266,39 @@ const Flights = () => {
       );
 
       if (response.data.success) {
+        // Calculate total price
+        const totalAmount = selectedFlight.price * bookingFormData.seatCount;
+
+        // Store booking details for the success animation
+        setLastBookingDetails({
+          ticketId:
+            response.data.booking?._id?.slice(-10).toUpperCase() ||
+            `SKY${Date.now().toString().slice(-10)}`,
+          amount: totalAmount,
+          date: new Date(),
+          cardHolder:
+            bookingFormData.passengers[0]?.name || user?.name || "Guest",
+          last4Digits: "", // Can be added if payment integration exists
+          barcodeValue: Math.random().toString().slice(2, 16),
+          title: "Booking Confirmed!",
+          subtitle: `${selectedFlight.origin} → ${
+            selectedFlight.destination
+          } • ${bookingFormData.seatCount} seat${
+            bookingFormData.seatCount > 1 ? "s" : ""
+          }`,
+        });
+
         setShowBookingModal(false);
         setShowBookingSuccess(true);
         fetchFlights(); // Refresh flights to update available seats
       }
     } catch (error) {
       console.error("Booking error:", error);
-      alert(
+      const errorMsg =
         error.response?.data?.message ||
-          "Failed to create booking. Please try again."
-      );
+        "Failed to create booking. Please try again.";
+      setErrorMessage(errorMsg);
+      setShowErrorToast(true);
     }
   };
 
@@ -484,6 +511,13 @@ const Flights = () => {
           color: white !important;
         }
       `}</style>
+      <SuccessToast
+        isVisible={showErrorToast}
+        title="Booking Error"
+        message={errorMessage}
+        duration={4000}
+        onClose={() => setShowErrorToast(false)}
+      />
       <Header />
       <section className="section bg-gradient-to-b from-blue-50 to-white">
         <div className="container">
@@ -872,8 +906,8 @@ const Flights = () => {
       {/* Booking Modal for Registered Users */}
       {showBookingModal && selectedFlight && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-lg shadow-2xl max-w-3xl w-full my-8 relative">
-            <div className="sticky top-0 bg-gradient-to-r from-primary to-primary-dark text-white p-6 rounded-t-lg">
+          <div className="bg-white rounded-lg shadow-2xl max-w-3xl w-full my-8 relative flex flex-col max-h-[90vh]">
+            <div className="sticky top-0 z-50 bg-gradient-to-r from-primary to-primary-dark text-white p-6 rounded-t-lg flex-shrink-0">
               <button
                 onClick={() => setShowBookingModal(false)}
                 className="absolute top-4 right-4 text-white hover:text-gray-200"
@@ -889,7 +923,10 @@ const Flights = () => {
                 {selectedFlight.destination}
               </p>
             </div>
-            <form onSubmit={handleBookingSubmit} className="p-6">
+            <form
+              onSubmit={handleBookingSubmit}
+              className="p-6 overflow-y-auto flex-1"
+            >
               {/* Flight Summary */}
               <div className="bg-blue-50 rounded-lg p-4 mb-6">
                 <h4 className="font-semibold text-gray-800 mb-3">
@@ -1121,6 +1158,7 @@ const Flights = () => {
       <BookingSuccessAnimation
         isVisible={showBookingSuccess}
         onAnimationComplete={handleAnimationComplete}
+        bookingDetails={lastBookingDetails}
       />
 
       <Footer />

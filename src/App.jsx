@@ -15,7 +15,9 @@ import Register from "./pages/auth/Register";
 // User Pages
 import Dashboard from "./pages/user/Dashboard";
 import MyBookings from "./pages/user/MyBookings";
+import PastBookings from "./pages/user/PastBookings";
 import Profile from "./pages/user/Profile";
+import PackageOffers from "./pages/user/PackageOffers";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -25,6 +27,7 @@ import ManageUsers from "./pages/admin/ManageUsers";
 import ManageBookings from "./pages/admin/ManageBookings";
 import ManageOffers from "./pages/admin/ManageOffers";
 import ManageUmrah from "./pages/admin/ManageUmrah";
+import ManageArchive from "./pages/admin/ManageArchive";
 import Reports from "./pages/admin/Reports";
 import Settings from "./pages/admin/Settings";
 import ManageLocations from "./pages/admin/ManageLocations";
@@ -49,6 +52,8 @@ function App() {
         {/* Protected User Routes */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/my-bookings" element={<MyBookings />} />
+        <Route path="/past-bookings" element={<PastBookings />} />
+        <Route path="/package-offers" element={<PackageOffers />} />
         <Route path="/profile" element={<Profile />} />
 
         {/* Protected Admin Routes */}
@@ -60,6 +65,7 @@ function App() {
         <Route path="/admin/offers" element={<ManageOffers />} />
         <Route path="/admin/umrah" element={<ManageUmrah />} />
         <Route path="/admin/locations" element={<ManageLocations />} />
+        <Route path="/admin/archive" element={<ManageArchive />} />
         <Route path="/admin/reports" element={<Reports />} />
         <Route path="/admin/settings" element={<Settings />} />
 

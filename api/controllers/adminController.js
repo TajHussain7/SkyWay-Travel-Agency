@@ -26,7 +26,7 @@ const getDashboard = async (req, res) => {
 
     // Get recent bookings with populated user and flight data
     const recentBookings = await Booking.find({})
-      .populate("userId", "name email")
+      .populate("userId", "name email phone profileImage")
       .populate("flightId")
       .sort({ createdAt: -1 })
       .limit(10)
@@ -37,7 +37,7 @@ const getDashboard = async (req, res) => {
     const recentUsers = await User.find({ role: "user" })
       .sort({ createdAt: -1 })
       .limit(5)
-      .select("name email createdAt")
+      .select("name email profileImage createdAt")
       .lean()
       .exec();
 
@@ -316,7 +316,7 @@ const getBookings = async (req, res) => {
 
     // Get bookings with pagination and populate user and flight info
     const bookings = await Booking.find({})
-      .populate("userId", "name email")
+      .populate("userId", "name email phone profileImage")
       .populate("flightId")
       .sort({ createdAt: -1 })
       .skip(skip)

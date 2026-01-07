@@ -746,7 +746,7 @@ const AdminDashboard = () => {
                       Number of Passengers
                     </label>
                     <p className="text-gray-900">
-                      {selectedBooking.passengers?.length || 0}
+                      {selectedBooking.passengerDetails?.length || 0}
                     </p>
                   </div>
                 </div>

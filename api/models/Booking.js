@@ -96,6 +96,18 @@ const bookingSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
     },
+    // Archive fields for lifecycle management
+    isArchived: {
+      type: Boolean,
+      default: false,
+    },
+    archivedAt: {
+      type: Date,
+    },
+    archivedReason: {
+      type: String,
+      enum: ["completed", "cancelled", "expired", "manual"],
+    },
   },
   {
     timestamps: true,

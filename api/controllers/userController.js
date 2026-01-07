@@ -1,6 +1,8 @@
 import User from "../models/User.js";
 import Booking from "../models/Booking.js";
 import Flight from "../models/Flight.js";
+import Feedback from "../models/Feedback.js";
+import ContactQuery from "../models/ContactQuery.js";
 
 // @desc    Get user dashboard
 // @route   GET /api/user/dashboard
@@ -231,7 +233,8 @@ const cancelBooking = async (req, res) => {
 // @access  Private
 const updateProfile = async (req, res) => {
   try {
-    const { name, email } = req.body;
+    const { name, email, phone, dateOfBirth, address, passport, profileImage } =
+      req.body;
     const userId = req.user.id;
 
     const user = await User.findById(userId);
@@ -242,8 +245,15 @@ const updateProfile = async (req, res) => {
       });
     }
 
-    if (name) user.name = name;
-    if (email) user.email = email;
+    // Update fields if provided
+    if (name !== undefined) user.name = name;
+    if (email !== undefined) user.email = email;
+    if (phone !== undefined) user.phone = phone;
+    if (dateOfBirth !== undefined) user.dateOfBirth = dateOfBirth;
+    if (address !== undefined) user.address = address;
+    if (passport !== undefined) user.passport = passport;
+    if (profileImage !== undefined) user.profileImage = profileImage;
+
     await user.save();
 
     res.status(200).json({
@@ -255,6 +265,11 @@ const updateProfile = async (req, res) => {
           name: user.name,
           email: user.email,
           role: user.role,
+          phone: user.phone,
+          dateOfBirth: user.dateOfBirth,
+          address: user.address,
+          passport: user.passport,
+          profileImage: user.profileImage,
         },
       },
     });
@@ -262,6 +277,218 @@ const updateProfile = async (req, res) => {
     res.status(400).json({
       success: false,
       message: error.message,
+    });
+  }
+};
+
+// @desc    Change user password
+// @route   PUT /api/user/change-password
+// @access  Private
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    // Validate input
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password and new password are required",
+      });
+    }
+
+    // Get user with password field
+    const user = await User.findById(userId).select("+password");
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check if current password matches
+    const isMatch = await user.matchPassword(currentPassword);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Current password is incorrect",
+      });
+    }
+
+    // Validate new password length
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 8 characters long",
+      });
+    }
+
+    // Update password (will be hashed by pre-save hook)
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// @desc    Delete user account (soft delete - archive)
+// @route   DELETE /api/user/account
+// @access  Private
+const deleteAccount = async (req, res) => {
+  try {
+    const { password, feedback } = req.body;
+    const userId = req.user.id;
+
+    // Validate password is provided
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: "Password is required to delete account",
+      });
+    }
+
+    // Get user with password field
+    const user = await User.findById(userId).select("+password");
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Verify password
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Password is incorrect",
+      });
+    }
+
+    // Calculate archive expiry (1 day from now)
+    const archiveExpiresAt = new Date();
+    archiveExpiresAt.setDate(archiveExpiresAt.getDate() + 1);
+
+    // Archive the user account
+    user.isArchived = true;
+    user.archivedAt = new Date();
+    user.archiveExpiresAt = archiveExpiresAt;
+    user.archiveReason = "self_deleted";
+    user.deletionFeedback = feedback || "";
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message:
+        "Account deleted successfully. You can recover it within 24 hours by contacting support.",
+      data: {
+        archivedAt: user.archivedAt,
+        archiveExpiresAt: user.archiveExpiresAt,
+      },
+    });
+  } catch (error) {
+    console.error("Delete account error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Error deleting account",
+    });
+  }
+};
+
+// @desc    Submit feedback after account deletion
+// @route   POST /api/user/feedback
+// @access  Public (for recently deleted users)
+const submitFeedback = async (req, res) => {
+  try {
+    const { email, name, rating, message, type } = req.body;
+
+    // Validate required fields
+    if (!email || !message) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and message are required",
+      });
+    }
+
+    // Create feedback entry
+    const feedback = await Feedback.create({
+      userEmail: email,
+      userName: name || "",
+      rating: rating || 3,
+      message,
+      type: type || "account_deletion",
+      status: "new",
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Thank you for your feedback!",
+      data: { feedback },
+    });
+  } catch (error) {
+    console.error("Submit feedback error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Error submitting feedback",
+    });
+  }
+};
+
+// @desc    Submit contact/support query
+// @route   POST /api/contact
+// @access  Public
+const submitContactQuery = async (req, res) => {
+  try {
+    const { name, email, phone, subject, message, type } = req.body;
+
+    // Validate required fields
+    if (!name || !email || !subject || !message) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, email, subject, and message are required",
+      });
+    }
+
+    // Determine priority based on type
+    let priority = "medium";
+    if (type === "account_recovery") {
+      priority = "high";
+    } else if (type === "complaint") {
+      priority = "high";
+    }
+
+    // Create contact query
+    const contactQuery = await ContactQuery.create({
+      name,
+      email,
+      phone: phone || "",
+      subject,
+      message,
+      type: type || "general",
+      priority,
+      status: "new",
+    });
+
+    res.status(201).json({
+      success: true,
+      message:
+        "Your message has been sent successfully. We will get back to you soon!",
+      data: { contactQuery },
+    });
+  } catch (error) {
+    console.error("Submit contact query error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Error submitting contact query",
     });
   }
 };
@@ -275,4 +502,8 @@ export {
   getBooking,
   cancelBooking,
   updateProfile,
+  changePassword,
+  deleteAccount,
+  submitFeedback,
+  submitContactQuery,
 };
