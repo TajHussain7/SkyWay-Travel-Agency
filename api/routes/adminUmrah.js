@@ -3,9 +3,9 @@ const router = express.Router();
 import UmrahPackage from "../models/UmrahPackage.js";
 import { protect, admin } from "../middleware/auth.js";
 
-// @route   GET /api/umrah/packages
-// @desc    Get all active Umrah packages (Public)
-// @access  Public
+// GET /api/umrah/packages
+// Get all active Umrah packages (Public)
+// Public
 router.get("/packages", async (req, res) => {
   try {
     const packages = await UmrahPackage.find({ status: "active" })

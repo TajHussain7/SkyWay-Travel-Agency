@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import AdminLayout from "../../components/AdminLayout";
+import ConfirmModal from "../../components/ConfirmModal";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 
@@ -23,6 +24,8 @@ const ManageArchive = () => {
   const [notification, setNotification] = useState(null);
   const [selectedQuery, setSelectedQuery] = useState(null);
   const [showQueryModal, setShowQueryModal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
 
   const fetchStats = async () => {
     try {
@@ -99,43 +102,77 @@ const ManageArchive = () => {
     }
   };
 
-  const restoreBooking = async (id) => {
-    try {
-      setActionLoading(id);
-      const response = await fetch(`${API_URL}/admin/archive/booking/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (response.ok) {
-        showNotification("success", "Booking restored successfully!");
-        fetchArchivedBookings(pagination.page);
-        fetchStats();
-      } else {
-        showNotification("error", "Failed to restore booking");
-      }
-    } catch (error) {
-      showNotification("error", "Error restoring booking");
-    } finally {
-      setActionLoading(null);
-    }
+  const [selectedFlight, setSelectedFlight] = useState(null);
+  const [showFlightEditModal, setShowFlightEditModal] = useState(false);
+  const [flightFormData, setFlightFormData] = useState({});
+
+  const openFlightEditModal = (flight) => {
+    setSelectedFlight(flight);
+    setFlightFormData({
+      number: flight.number,
+      airline: flight.airline,
+      origin: flight.origin,
+      destination: flight.destination,
+      departureTime: new Date(flight.departureTime).toISOString().slice(0, 16),
+      arrivalTime: new Date(flight.arrivalTime).toISOString().slice(0, 16),
+      price: flight.price,
+      totalSeats: flight.totalSeats,
+      availableSeats: flight.availableSeats || flight.totalSeats,
+      status: flight.status,
+      aircraft: flight.aircraft || "",
+    });
+    setShowFlightEditModal(true);
   };
 
-  const restoreFlight = async (id) => {
+  const closeFlightEditModal = () => {
+    setSelectedFlight(null);
+    setFlightFormData({});
+    setShowFlightEditModal(false);
+  };
+
+  const handleFlightFormChange = (field, value) => {
+    setFlightFormData({ ...flightFormData, [field]: value });
+  };
+
+  const handleUpdateArchivedFlight = async () => {
+    if (!selectedFlight) return;
+
     try {
-      setActionLoading(id);
-      const response = await fetch(`${API_URL}/admin/archive/flight/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      setActionLoading(selectedFlight._id);
+
+      // Update flight and unarchive it
+      const updateData = {
+        ...flightFormData,
+        isArchived: false,
+        archivedAt: null,
+        archivedReason: null,
+      };
+
+      const response = await fetch(
+        `${API_URL}/admin/flights/${selectedFlight._id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(updateData),
+        }
+      );
+
       if (response.ok) {
-        showNotification("success", "Flight restored successfully!");
+        showNotification(
+          "success",
+          "Flight updated and restored successfully!"
+        );
+        closeFlightEditModal();
         fetchArchivedFlights(pagination.page);
         fetchStats();
       } else {
-        showNotification("error", "Failed to restore flight");
+        const data = await response.json();
+        showNotification("error", data.message || "Failed to update flight");
       }
     } catch (error) {
-      showNotification("error", "Error restoring flight");
+      console.error("Error updating flight:", error);
+      showNotification("error", "Error updating flight");
     } finally {
       setActionLoading(null);
     }
@@ -297,6 +334,63 @@ const ManageArchive = () => {
   const showNotification = (type, message) => {
     setNotification({ type, message });
     setTimeout(() => setNotification(null), 3000);
+  };
+
+  const clearArchiveSection = (section) => {
+    setConfirmAction({
+      section,
+      title: "Clear Archive",
+      message: `Are you sure you want to permanently delete all archived ${section}? This action cannot be undone.`,
+    });
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmClear = async () => {
+    if (!confirmAction) return;
+
+    const section = confirmAction.section;
+    setShowConfirmModal(false);
+    setConfirmAction(null);
+
+    try {
+      setActionLoading(`clear-${section}`);
+      const response = await fetch(
+        `${API_URL}/admin/archive/clear/${section}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        showNotification(
+          "success",
+          `${data.message} (${data.deletedCount} items deleted)`
+        );
+        fetchStats();
+
+        // Refresh current tab
+        if (section === "bookings") {
+          fetchArchivedBookings(1);
+        } else if (section === "flights") {
+          fetchArchivedFlights(1);
+        } else if (section === "users") {
+          fetchArchivedUsers(1);
+        } else if (section === "feedback") {
+          fetchFeedback(1);
+        } else if (section === "contact-queries") {
+          fetchContactQueries(1);
+        }
+      } else {
+        showNotification("error", "Failed to clear archive");
+      }
+    } catch (error) {
+      console.error("Error clearing archive:", error);
+      showNotification("error", "Error clearing archive");
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   useEffect(() => {
@@ -583,493 +677,583 @@ const ManageArchive = () => {
             </div>
           ) : activeTab === "bookings" ? (
             /* Bookings Table */
-            bookings.length === 0 ? (
-              <div className="text-center py-12">
-                <i className="fas fa-archive text-5xl text-gray-300 mb-4"></i>
-                <p className="text-gray-500">No archived bookings found</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Booking ID
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        User
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Type
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Details
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Reason
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Archived On
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bookings.map((booking) => (
-                      <tr
-                        key={booking._id}
-                        className="border-b border-gray-100 hover:bg-gray-50"
-                      >
-                        <td className="py-3 px-4 text-sm font-mono">
-                          {booking._id.slice(-8).toUpperCase()}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">
-                              {booking.userId?.name || "N/A"}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {booking.userId?.email || ""}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              booking.bookingType === "flight"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-purple-100 text-purple-800"
-                            }`}
-                          >
-                            {booking.bookingType === "flight"
-                              ? "Flight"
-                              : "Package"}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {booking.bookingType === "flight"
-                            ? `${booking.flightId?.origin?.code || "?"} → ${
-                                booking.flightId?.destination?.code || "?"
-                              }`
-                            : booking.packageOfferId?.name || "Package"}
-                        </td>
-                        <td className="py-3 px-4">
-                          {getReasonBadge(booking.archivedReason)}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {formatDate(booking.archivedAt)}
-                        </td>
-                        <td className="py-3 px-4">
-                          <button
-                            onClick={() => restoreBooking(booking._id)}
-                            disabled={actionLoading === booking._id}
-                            className="text-primary hover:text-primary-dark text-sm font-medium disabled:opacity-50"
-                          >
-                            {actionLoading === booking._id ? (
-                              <i className="fas fa-spinner fa-spin"></i>
-                            ) : (
-                              <>
-                                <i className="fas fa-undo mr-1"></i> Restore
-                              </>
-                            )}
-                          </button>
-                        </td>
+            <>
+              {bookings.length > 0 && (
+                <div className="mb-4 flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Archived Bookings ({bookings.length})
+                  </h3>
+                  <button
+                    onClick={() => clearArchiveSection("bookings")}
+                    disabled={actionLoading === "clear-bookings"}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {actionLoading === "clear-bookings" ? (
+                      <i className="fas fa-spinner fa-spin"></i>
+                    ) : (
+                      <i className="fas fa-trash-alt"></i>
+                    )}
+                    Clear All
+                  </button>
+                </div>
+              )}
+              {bookings.length === 0 ? (
+                <div className="text-center py-12">
+                  <i className="fas fa-archive text-5xl text-gray-300 mb-4"></i>
+                  <p className="text-gray-500">No archived bookings found</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Booking ID
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          User
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Type
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Details
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Reason
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Archived On
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
-          ) : activeTab === "flights" ? (
-            /* Flights Table */
-            flights.length === 0 ? (
-              <div className="text-center py-12">
-                <i className="fas fa-plane text-5xl text-gray-300 mb-4"></i>
-                <p className="text-gray-500">No archived flights found</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Flight #
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Route
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Airline
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Departure
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Reason
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Archived On
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {flights.map((flight) => (
-                      <tr
-                        key={flight._id}
-                        className="border-b border-gray-100 hover:bg-gray-50"
-                      >
-                        <td className="py-3 px-4 text-sm font-medium text-gray-900">
-                          {flight.number}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {flight.origin?.code || "?"} →{" "}
-                          {flight.destination?.code || "?"}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {flight.airline}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {formatDate(flight.departureTime)}
-                        </td>
-                        <td className="py-3 px-4">
-                          {getReasonBadge(flight.archivedReason)}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {formatDate(flight.archivedAt)}
-                        </td>
-                        <td className="py-3 px-4">
-                          <button
-                            onClick={() => restoreFlight(flight._id)}
-                            disabled={actionLoading === flight._id}
-                            className="text-primary hover:text-primary-dark text-sm font-medium disabled:opacity-50"
-                          >
-                            {actionLoading === flight._id ? (
-                              <i className="fas fa-spinner fa-spin"></i>
-                            ) : (
-                              <>
-                                <i className="fas fa-undo mr-1"></i> Restore
-                              </>
-                            )}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
-          ) : activeTab === "users" ? (
-            /* Users Table */
-            users.length === 0 ? (
-              <div className="text-center py-12">
-                <i className="fas fa-user-slash text-5xl text-gray-300 mb-4"></i>
-                <p className="text-gray-500">No deleted users found</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Email
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Name
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Phone
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Deleted
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Time Remaining
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Reason
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.map((user) => (
-                      <tr
-                        key={user._id}
-                        className="border-b border-gray-100 hover:bg-gray-50"
-                      >
-                        <td className="py-3 px-4 text-sm font-medium text-gray-900">
-                          {user.email}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {user.name || "N/A"}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {user.phone || "N/A"}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {formatDate(user.archivedAt)}
-                        </td>
-                        <td className="py-3 px-4">
-                          {getTimeRemaining(user.archiveExpiresAt) ? (
+                    </thead>
+                    <tbody>
+                      {bookings.map((booking) => (
+                        <tr
+                          key={booking._id}
+                          className="border-b border-gray-100 hover:bg-gray-50"
+                        >
+                          <td className="py-3 px-4 text-sm font-mono">
+                            {booking._id.slice(-8).toUpperCase()}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">
+                                {booking.userId?.name || (
+                                  <span className="text-gray-400 italic">
+                                    Deleted User
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {booking.userId?.email || ""}
+                              </p>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
                             <span
-                              className={`text-sm font-medium ${
-                                getTimeRemaining(user.archiveExpiresAt) ===
-                                "Expired"
-                                  ? "text-red-600"
-                                  : "text-orange-600"
+                              className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                booking.bookingType === "flight"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-purple-100 text-purple-800"
                               }`}
                             >
-                              {getTimeRemaining(user.archiveExpiresAt)}
+                              {booking.bookingType === "flight"
+                                ? "Flight"
+                                : "Package"}
                             </span>
-                          ) : (
-                            <span className="text-gray-500 text-sm">N/A</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4">
-                          {getReasonBadge(user.archiveReason)}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex gap-2">
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {booking.bookingType === "flight"
+                              ? `${booking.flightId?.origin || "?"} → ${
+                                  booking.flightId?.destination || "?"
+                                }`
+                              : booking.packageOfferId?.name || "Package"}
+                          </td>
+                          <td className="py-3 px-4">
+                            {getReasonBadge(booking.archivedReason)}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {formatDate(booking.archivedAt)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          ) : activeTab === "flights" ? (
+            /* Flights Table */
+            <>
+              {flights.length > 0 && (
+                <div className="mb-4 flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Archived Flights ({flights.length})
+                  </h3>
+                  <button
+                    onClick={() => clearArchiveSection("flights")}
+                    disabled={actionLoading === "clear-flights"}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {actionLoading === "clear-flights" ? (
+                      <i className="fas fa-spinner fa-spin"></i>
+                    ) : (
+                      <i className="fas fa-trash-alt"></i>
+                    )}
+                    Clear All
+                  </button>
+                </div>
+              )}
+              {flights.length === 0 ? (
+                <div className="text-center py-12">
+                  <i className="fas fa-plane text-5xl text-gray-300 mb-4"></i>
+                  <p className="text-gray-500">No archived flights found</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Flight #
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Route
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Airline
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Departure
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Reason
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Archived On
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {flights.map((flight) => (
+                        <tr
+                          key={flight._id}
+                          className="border-b border-gray-100 hover:bg-gray-50"
+                        >
+                          <td className="py-3 px-4 text-sm font-medium text-gray-900">
+                            {flight.number}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {flight.origin || "?"} → {flight.destination || "?"}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {flight.airline}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {formatDate(flight.departureTime)}
+                          </td>
+                          <td className="py-3 px-4">
+                            {getReasonBadge(flight.archivedReason)}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {formatDate(flight.archivedAt)}
+                          </td>
+                          <td className="py-3 px-4">
                             <button
-                              onClick={() => restoreUser(user._id)}
-                              disabled={actionLoading === user._id}
+                              onClick={() => openFlightEditModal(flight)}
+                              disabled={actionLoading === flight._id}
                               className="text-primary hover:text-primary-dark text-sm font-medium disabled:opacity-50"
                             >
-                              {actionLoading === user._id ? (
+                              {actionLoading === flight._id ? (
                                 <i className="fas fa-spinner fa-spin"></i>
                               ) : (
                                 <>
-                                  <i className="fas fa-undo mr-1"></i> Restore
+                                  <i className="fas fa-edit mr-1"></i> Update
                                 </>
                               )}
                             </button>
-                            <button
-                              onClick={() => deletePermanentlyUser(user._id)}
-                              disabled={actionLoading === user._id}
-                              className="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
-                            >
-                              <i className="fas fa-trash mr-1"></i> Delete
-                            </button>
-                          </div>
-                        </td>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          ) : activeTab === "users" ? (
+            /* Users Table */
+            <>
+              {users.length > 0 && (
+                <div className="mb-4 flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Deleted Users ({users.length})
+                  </h3>
+                  <button
+                    onClick={() => clearArchiveSection("users")}
+                    disabled={actionLoading === "clear-users"}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {actionLoading === "clear-users" ? (
+                      <i className="fas fa-spinner fa-spin"></i>
+                    ) : (
+                      <i className="fas fa-trash-alt"></i>
+                    )}
+                    Clear All
+                  </button>
+                </div>
+              )}
+              {users.length === 0 ? (
+                <div className="text-center py-12">
+                  <i className="fas fa-user-slash text-5xl text-gray-300 mb-4"></i>
+                  <p className="text-gray-500">No deleted users found</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Email
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Name
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Phone
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Deleted
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Time Remaining
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Reason
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Actions
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
+                    </thead>
+                    <tbody>
+                      {users.map((user) => (
+                        <tr
+                          key={user._id}
+                          className="border-b border-gray-100 hover:bg-gray-50"
+                        >
+                          <td className="py-3 px-4 text-sm font-medium text-gray-900">
+                            {user.email}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {user.name || "N/A"}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {user.phone || "N/A"}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {formatDate(user.archivedAt)}
+                          </td>
+                          <td className="py-3 px-4">
+                            {getTimeRemaining(user.archiveExpiresAt) ? (
+                              <span
+                                className={`text-sm font-medium ${
+                                  getTimeRemaining(user.archiveExpiresAt) ===
+                                  "Expired"
+                                    ? "text-red-600"
+                                    : "text-orange-600"
+                                }`}
+                              >
+                                {getTimeRemaining(user.archiveExpiresAt)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-500 text-sm">N/A</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            {getReasonBadge(user.archiveReason)}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => restoreUser(user._id)}
+                                disabled={actionLoading === user._id}
+                                className="text-primary hover:text-primary-dark text-sm font-medium disabled:opacity-50"
+                              >
+                                {actionLoading === user._id ? (
+                                  <i className="fas fa-spinner fa-spin"></i>
+                                ) : (
+                                  <>
+                                    <i className="fas fa-undo mr-1"></i> Restore
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => deletePermanentlyUser(user._id)}
+                                disabled={actionLoading === user._id}
+                                className="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
+                              >
+                                <i className="fas fa-trash mr-1"></i> Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           ) : activeTab === "feedback" ? (
             /* Feedback Table */
-            feedback.length === 0 ? (
-              <div className="text-center py-12">
-                <i className="fas fa-comment text-5xl text-gray-300 mb-4"></i>
-                <p className="text-gray-500">No feedback found</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        User
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Type
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Rating
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Message
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Status
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Date
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {feedback.map((item) => (
-                      <tr
-                        key={item._id}
-                        className="border-b border-gray-100 hover:bg-gray-50"
-                      >
-                        <td className="py-3 px-4">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">
-                              {item.userName || "Anonymous"}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {item.userEmail}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              item.type === "account_deletion"
-                                ? "bg-red-100 text-red-800"
-                                : item.type === "suggestion"
-                                ? "bg-blue-100 text-blue-800"
-                                : item.type === "complaint"
-                                ? "bg-orange-100 text-orange-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
-                          >
-                            {item.type?.replace("_", " ")}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          {item.rating ? getRatingStars(item.rating) : "N/A"}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600 max-w-xs truncate">
-                          {item.message}
-                        </td>
-                        <td className="py-3 px-4">
-                          {getStatusBadge(item.status)}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {formatDate(item.createdAt)}
-                        </td>
-                        <td className="py-3 px-4">
-                          <button
-                            onClick={() =>
-                              updateFeedbackStatus(
-                                item._id,
-                                item.status === "new" ? "read" : "resolved"
-                              )
-                            }
-                            disabled={actionLoading === item._id}
-                            className="text-primary hover:text-primary-dark text-sm font-medium disabled:opacity-50"
-                          >
-                            {actionLoading === item._id ? (
-                              <i className="fas fa-spinner fa-spin"></i>
-                            ) : item.status === "new" ? (
-                              <>
-                                <i className="fas fa-envelope-open mr-1"></i>{" "}
-                                Mark Read
-                              </>
-                            ) : (
-                              <>
-                                <i className="fas fa-check-circle mr-1"></i>{" "}
-                                Mark Resolved
-                              </>
-                            )}
-                          </button>
-                        </td>
+            <>
+              {feedback.length > 0 && (
+                <div className="mb-4 flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Archived Feedback ({feedback.length})
+                  </h3>
+                  <button
+                    onClick={() => clearArchiveSection("feedback")}
+                    disabled={actionLoading === "clear-feedback"}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {actionLoading === "clear-feedback" ? (
+                      <i className="fas fa-spinner fa-spin"></i>
+                    ) : (
+                      <i className="fas fa-trash-alt"></i>
+                    )}
+                    Clear All
+                  </button>
+                </div>
+              )}
+              {feedback.length === 0 ? (
+                <div className="text-center py-12">
+                  <i className="fas fa-comment text-5xl text-gray-300 mb-4"></i>
+                  <p className="text-gray-500">No feedback found</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          User
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Type
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Rating
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Message
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Status
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Date
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Actions
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
+                    </thead>
+                    <tbody>
+                      {feedback.map((item) => (
+                        <tr
+                          key={item._id}
+                          className="border-b border-gray-100 hover:bg-gray-50"
+                        >
+                          <td className="py-3 px-4">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">
+                                {item.userName || "Anonymous"}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {item.userEmail}
+                              </p>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span
+                              className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                item.type === "account_deletion"
+                                  ? "bg-red-100 text-red-800"
+                                  : item.type === "suggestion"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : item.type === "complaint"
+                                  ? "bg-orange-100 text-orange-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              {item.type?.replace("_", " ")}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            {item.rating ? getRatingStars(item.rating) : "N/A"}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600 max-w-xs truncate">
+                            {item.message}
+                          </td>
+                          <td className="py-3 px-4">
+                            {getStatusBadge(item.status)}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {formatDate(item.createdAt)}
+                          </td>
+                          <td className="py-3 px-4">
+                            <button
+                              onClick={() =>
+                                updateFeedbackStatus(
+                                  item._id,
+                                  item.status === "new" ? "read" : "resolved"
+                                )
+                              }
+                              disabled={actionLoading === item._id}
+                              className="text-primary hover:text-primary-dark text-sm font-medium disabled:opacity-50"
+                            >
+                              {actionLoading === item._id ? (
+                                <i className="fas fa-spinner fa-spin"></i>
+                              ) : item.status === "new" ? (
+                                <>
+                                  <i className="fas fa-envelope-open mr-1"></i>{" "}
+                                  Mark Read
+                                </>
+                              ) : (
+                                <>
+                                  <i className="fas fa-check-circle mr-1"></i>{" "}
+                                  Mark Resolved
+                                </>
+                              )}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           ) : activeTab === "queries" ? (
             /* Contact Queries Table */
-            contactQueries.length === 0 ? (
-              <div className="text-center py-12">
-                <i className="fas fa-envelope text-5xl text-gray-300 mb-4"></i>
-                <p className="text-gray-500">No contact queries found</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        From
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Subject
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Type
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Priority
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Status
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Date
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {contactQueries.map((query) => (
-                      <tr
-                        key={query._id}
-                        className="border-b border-gray-100 hover:bg-gray-50"
-                      >
-                        <td className="py-3 px-4">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">
-                              {query.name}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {query.email}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600 max-w-xs truncate">
-                          {query.subject}
-                        </td>
-                        <td className="py-3 px-4">
-                          <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              query.type === "account_recovery"
-                                ? "bg-purple-100 text-purple-800"
-                                : query.type === "booking"
-                                ? "bg-blue-100 text-blue-800"
-                                : query.type === "complaint"
-                                ? "bg-red-100 text-red-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
-                          >
-                            {query.type?.replace("_", " ")}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          {getPriorityBadge(query.priority)}
-                        </td>
-                        <td className="py-3 px-4">
-                          {getStatusBadge(query.status)}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {formatDate(query.createdAt)}
-                        </td>
-                        <td className="py-3 px-4">
-                          <button
-                            onClick={() => {
-                              setSelectedQuery(query);
-                              setShowQueryModal(true);
-                            }}
-                            className="text-primary hover:text-primary-dark text-sm font-medium"
-                          >
-                            <i className="fas fa-eye mr-1"></i> View
-                          </button>
-                        </td>
+            <>
+              {contactQueries.length > 0 && (
+                <div className="mb-4 flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Archived Contact Queries ({contactQueries.length})
+                  </h3>
+                  <button
+                    onClick={() => clearArchiveSection("contact-queries")}
+                    disabled={actionLoading === "clear-contact-queries"}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {actionLoading === "clear-contact-queries" ? (
+                      <i className="fas fa-spinner fa-spin"></i>
+                    ) : (
+                      <i className="fas fa-trash-alt"></i>
+                    )}
+                    Clear All
+                  </button>
+                </div>
+              )}
+              {contactQueries.length === 0 ? (
+                <div className="text-center py-12">
+                  <i className="fas fa-envelope text-5xl text-gray-300 mb-4"></i>
+                  <p className="text-gray-500">No contact queries found</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          From
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Subject
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Type
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Priority
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Status
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Date
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                          Actions
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
+                    </thead>
+                    <tbody>
+                      {contactQueries.map((query) => (
+                        <tr
+                          key={query._id}
+                          className="border-b border-gray-100 hover:bg-gray-50"
+                        >
+                          <td className="py-3 px-4">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">
+                                {query.name}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {query.email}
+                              </p>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600 max-w-xs truncate">
+                            {query.subject}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span
+                              className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                query.type === "account_recovery"
+                                  ? "bg-purple-100 text-purple-800"
+                                  : query.type === "booking"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : query.type === "complaint"
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              {query.type?.replace("_", " ")}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            {getPriorityBadge(query.priority)}
+                          </td>
+                          <td className="py-3 px-4">
+                            {getStatusBadge(query.status)}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {formatDate(query.createdAt)}
+                          </td>
+                          <td className="py-3 px-4">
+                            <button
+                              onClick={() => {
+                                setSelectedQuery(query);
+                                setShowQueryModal(true);
+                              }}
+                              className="text-primary hover:text-primary-dark text-sm font-medium"
+                            >
+                              <i className="fas fa-eye mr-1"></i> View
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           ) : null}
           {/* Pagination */}
           {pagination.pages > 1 && (
@@ -1187,6 +1371,236 @@ const ManageArchive = () => {
           </div>
         </div>
       )}
+
+      {/* Flight Edit Modal */}
+      {showFlightEditModal && selectedFlight && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-primary to-primary-dark text-white p-6 flex items-center justify-between sticky top-0 z-10">
+              <h3 className="text-2xl font-bold">
+                <i className="fas fa-edit mr-3"></i>
+                Update Archived Flight
+              </h3>
+              <button
+                className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-full w-10 h-10 flex items-center justify-center transition-all duration-300"
+                onClick={closeFlightEditModal}
+              >
+                <i className="fas fa-times text-lg"></i>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-blue-800">
+                  <i className="fas fa-info-circle mr-2"></i>
+                  Updating this flight will unarchive it and make it live on the
+                  website again.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Flight Number *
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    value={flightFormData.number || ""}
+                    onChange={(e) =>
+                      handleFlightFormChange("number", e.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Airline *
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    value={flightFormData.airline || ""}
+                    onChange={(e) =>
+                      handleFlightFormChange("airline", e.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Origin *
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    value={flightFormData.origin || ""}
+                    onChange={(e) =>
+                      handleFlightFormChange("origin", e.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Destination *
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    value={flightFormData.destination || ""}
+                    onChange={(e) =>
+                      handleFlightFormChange("destination", e.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Departure Time *
+                  </label>
+                  <input
+                    type="datetime-local"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    value={flightFormData.departureTime || ""}
+                    onChange={(e) =>
+                      handleFlightFormChange("departureTime", e.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Arrival Time *
+                  </label>
+                  <input
+                    type="datetime-local"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    value={flightFormData.arrivalTime || ""}
+                    onChange={(e) =>
+                      handleFlightFormChange("arrivalTime", e.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Price ($) *
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    value={flightFormData.price || ""}
+                    onChange={(e) =>
+                      handleFlightFormChange(
+                        "price",
+                        parseFloat(e.target.value)
+                      )
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Total Seats *
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    value={flightFormData.totalSeats || ""}
+                    onChange={(e) =>
+                      handleFlightFormChange(
+                        "totalSeats",
+                        parseInt(e.target.value)
+                      )
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Available Seats *
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    value={flightFormData.availableSeats || ""}
+                    onChange={(e) =>
+                      handleFlightFormChange(
+                        "availableSeats",
+                        parseInt(e.target.value)
+                      )
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Status *
+                  </label>
+                  <select
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    value={flightFormData.status || "scheduled"}
+                    onChange={(e) =>
+                      handleFlightFormChange("status", e.target.value)
+                    }
+                  >
+                    <option value="scheduled">Scheduled</option>
+                    <option value="active">Active</option>
+                    <option value="delayed">Delayed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Aircraft
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    value={flightFormData.aircraft || ""}
+                    onChange={(e) =>
+                      handleFlightFormChange("aircraft", e.target.value)
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t">
+                <button
+                  onClick={handleUpdateArchivedFlight}
+                  disabled={actionLoading === selectedFlight._id}
+                  className="flex-1 bg-primary hover:bg-primary-dark text-white py-3 rounded-lg font-semibold transition-colors disabled:opacity-50"
+                >
+                  {actionLoading === selectedFlight._id ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin mr-2"></i>
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-check mr-2"></i>
+                      Update & Make Live
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={closeFlightEditModal}
+                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        onClose={() => {
+          setShowConfirmModal(false);
+          setConfirmAction(null);
+        }}
+        onConfirm={handleConfirmClear}
+        title={confirmAction?.title || "Confirm Action"}
+        message={confirmAction?.message || "Are you sure?"}
+        confirmText="Delete Permanently"
+        cancelText="Cancel"
+        type="danger"
+      />
     </div>
   );
 };

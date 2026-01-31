@@ -41,7 +41,6 @@ const packageOfferSchema = new mongoose.Schema(
     badgeColor: {
       type: String,
       default: "blue",
-      // Tailwind color classes like "yellow", "blue", "green", "purple"
     },
     image: {
       type: String,
@@ -91,7 +90,7 @@ const packageOfferSchema = new mongoose.Schema(
     },
     validTo: {
       type: Date,
-      default: null, // null means no expiry
+      default: null,
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -104,7 +103,7 @@ const packageOfferSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Check if offer is still valid

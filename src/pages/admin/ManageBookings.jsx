@@ -107,6 +107,25 @@ const ManageBookings = () => {
     }
   };
 
+  const confirmBooking = async (bookingId) => {
+    try {
+      const response = await axios.post(
+        `/api/admin/bookings/${bookingId}/confirm`,
+        {},
+        { withCredentials: true }
+      );
+
+      if (response.data.success) {
+        // Reload bookings after confirmation
+        await loadBookings();
+        alert("Booking confirmed successfully! Ticket number assigned.");
+      }
+    } catch (error) {
+      console.error("Error confirming booking:", error);
+      alert(error.response?.data?.message || "Failed to confirm booking");
+    }
+  };
+
   const viewBookingDetails = (booking) => {
     setSelectedBooking(booking);
     setShowDetailsModal(true);
@@ -392,12 +411,7 @@ const ManageBookings = () => {
                               <>
                                 <button
                                   className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-3 rounded-lg transition-all duration-300"
-                                  onClick={() =>
-                                    updateBookingStatus(
-                                      booking._id,
-                                      "confirmed"
-                                    )
-                                  }
+                                  onClick={() => confirmBooking(booking._id)}
                                   title="Confirm Booking"
                                 >
                                   <i className="fas fa-check"></i>
@@ -518,6 +532,18 @@ const ManageBookings = () => {
                         {selectedBooking.passengerDetails?.length || 0}
                       </p>
                     </div>
+                    {selectedBooking.seatNumbers &&
+                      selectedBooking.seatNumbers.length > 0 && (
+                        <div>
+                          <label className="text-sm text-gray-600 font-semibold">
+                            Seat Numbers
+                          </label>
+                          <p className="text-gray-900">
+                            <i className="fas fa-chair text-primary mr-2"></i>
+                            {selectedBooking.seatNumbers.join(", ")}
+                          </p>
+                        </div>
+                      )}
                   </div>
                 </div>
 
@@ -703,19 +729,43 @@ const ManageBookings = () => {
                         <i className="fas fa-users text-green-600 mr-2"></i>
                         Passenger Details ({selectedBooking.passengers.length})
                       </h4>
+                      {/* Show all seat numbers if available */}
+                      {selectedBooking.seatNumbers &&
+                        selectedBooking.seatNumbers.length > 0 && (
+                          <div className="mb-3 p-3 bg-white rounded-lg border border-green-200">
+                            <span className="text-sm text-gray-600 font-semibold">
+                              <i className="fas fa-chair mr-2 text-green-600"></i>
+                              Assigned Seats:
+                            </span>
+                            <span className="ml-2 text-gray-900 font-bold">
+                              {selectedBooking.seatNumbers.join(", ")}
+                            </span>
+                          </div>
+                        )}
                       <div className="space-y-3">
                         {selectedBooking.passengers.map((passenger, index) => (
                           <div
                             key={index}
                             className="bg-white p-3 rounded-lg border border-green-200"
                           >
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">
-                                {index + 1}
-                              </span>
-                              <span className="font-bold text-gray-900">
-                                {passenger.name || "N/A"}
-                              </span>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">
+                                  {index + 1}
+                                </span>
+                                <span className="font-bold text-gray-900">
+                                  {passenger.name || "N/A"}
+                                </span>
+                              </div>
+                              {selectedBooking.seatNumbers &&
+                                selectedBooking.seatNumbers[index] && (
+                                  <div className="flex items-center gap-2 bg-green-100 px-3 py-1 rounded-full">
+                                    <i className="fas fa-chair text-green-700 text-sm"></i>
+                                    <span className="font-bold text-green-800 text-sm">
+                                      {selectedBooking.seatNumbers[index]}
+                                    </span>
+                                  </div>
+                                )}
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
                               <div>

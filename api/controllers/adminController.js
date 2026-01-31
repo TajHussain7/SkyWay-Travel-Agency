@@ -1,13 +1,10 @@
 import User from "../models/User.js";
 import Flight from "../models/Flight.js";
 import Booking from "../models/Booking.js";
+import { archivePastFlights } from "../utils/archiveBookings.js";
 
-// @desc    Get admin dashboard
-// @route   GET /api/admin/dashboard
-// @access  Private/Admin
 const getDashboard = async (req, res) => {
   try {
-    // Get statistics from MongoDB
     const users = await User.find({});
     const flights = await Flight.find({});
     const bookings = await Booking.find({});
@@ -16,7 +13,6 @@ const getDashboard = async (req, res) => {
     const totalFlights = flights.length;
     const totalBookings = bookings.length;
 
-    // Calculate revenue
     let totalRevenue = 0;
     bookings.forEach((b) => {
       if (b.status === "confirmed") {
@@ -62,19 +58,14 @@ const getDashboard = async (req, res) => {
   }
 };
 
-// @desc    Get all users
-// @route   GET /api/admin/users
-// @access  Private/Admin
 const getUsers = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 100;
     const skip = (page - 1) * limit;
 
-    // Get total count
     const total = await User.countDocuments({ role: "user" });
 
-    // Get users with pagination
     const users = await User.find({ role: "user" })
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -100,9 +91,6 @@ const getUsers = async (req, res) => {
   }
 };
 
-// @desc    Delete user
-// @route   DELETE /api/admin/users/:id
-// @access  Private/Admin
 const deleteUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
@@ -136,9 +124,6 @@ const deleteUser = async (req, res) => {
   }
 };
 
-// @desc    Update user role
-// @route   PUT /api/admin/users/:id
-// @access  Private/Admin
 const updateUser = async (req, res) => {
   try {
     const { role } = req.body;
@@ -168,20 +153,18 @@ const updateUser = async (req, res) => {
   }
 };
 
-// @desc    Get all flights
-// @route   GET /api/admin/flights
-// @access  Private/Admin
 const getFlights = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 100;
     const skip = (page - 1) * limit;
 
-    // Get total count
-    const total = await Flight.countDocuments();
+    await archivePastFlights();
 
-    // Get flights with pagination
-    const flights = await Flight.find({})
+    const query = { isArchived: { $ne: true } };
+    const total = await Flight.countDocuments(query);
+
+    const flights = await Flight.find(query) //pagination
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -190,7 +173,8 @@ const getFlights = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: flights,
+      data: { flights },
+      flights,
       pagination: {
         page,
         pages: Math.ceil(total / limit),
@@ -205,9 +189,6 @@ const getFlights = async (req, res) => {
   }
 };
 
-// @desc    Create flight
-// @route   POST /api/admin/flights
-// @access  Private/Admin
 const createFlight = async (req, res) => {
   try {
     const flight = await Flight.create(req.body);
@@ -227,9 +208,6 @@ const createFlight = async (req, res) => {
   }
 };
 
-// @desc    Update flight
-// @route   PUT /api/admin/flights/:id
-// @access  Private/Admin
 const updateFlight = async (req, res) => {
   try {
     const flight = await Flight.findById(req.params.id);
@@ -260,9 +238,6 @@ const updateFlight = async (req, res) => {
   }
 };
 
-// @desc    Delete flight
-// @route   DELETE /api/admin/flights/:id
-// @access  Private/Admin
 const deleteFlight = async (req, res) => {
   try {
     const flight = await Flight.findById(req.params.id);
@@ -274,10 +249,9 @@ const deleteFlight = async (req, res) => {
       });
     }
 
-    // Check if flight has bookings
     const bookings = await Booking.find({ flightId: req.params.id });
     const activeBookings = bookings.filter((b) =>
-      ["confirmed", "pending"].includes(b.status)
+      ["confirmed", "pending"].includes(b.status),
     );
 
     if (activeBookings.length > 0) {
@@ -287,7 +261,6 @@ const deleteFlight = async (req, res) => {
       });
     }
 
-    // Delete flight from MongoDB
     await Flight.findByIdAndDelete(req.params.id);
 
     res.status(200).json({
@@ -302,22 +275,19 @@ const deleteFlight = async (req, res) => {
   }
 };
 
-// @desc    Get all bookings
-// @route   GET /api/admin/bookings
-// @access  Private/Admin
 const getBookings = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 100;
     const skip = (page - 1) * limit;
 
-    // Get total count
-    const total = await Booking.countDocuments();
+    const query = { isArchived: { $ne: true } };
+    const total = await Booking.countDocuments(query);
 
-    // Get bookings with pagination and populate user and flight info
-    const bookings = await Booking.find({})
+    const bookings = await Booking.find(query)
       .populate("userId", "name email phone profileImage")
       .populate("flightId")
+      .populate("packageOfferId")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -341,9 +311,6 @@ const getBookings = async (req, res) => {
   }
 };
 
-// @desc    Update booking status
-// @route   PUT /api/admin/bookings/:id
-// @access  Private/Admin
 const updateBooking = async (req, res) => {
   try {
     const { status } = req.body;
@@ -374,9 +341,48 @@ const updateBooking = async (req, res) => {
   }
 };
 
-// @desc    Get single booking
-// @route   GET /api/admin/bookings/:id
-// @access  Private/Admin
+const confirmBooking = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    if (booking.status === "confirmed") {
+      return res.status(400).json({
+        success: false,
+        message: "Booking is already confirmed",
+      });
+    }
+
+    booking.status = "confirmed";
+    await booking.save();
+
+    const populatedBooking = await Booking.findById(booking._id)
+      .populate("userId", "name email phone")
+      .populate(
+        "flightId",
+        "number origin destination departureTime arrivalTime airline",
+      );
+
+    res.status(200).json({
+      success: true,
+      message: "Booking confirmed successfully",
+      data: populatedBooking,
+    });
+  } catch (error) {
+    console.error("Confirm booking error:", error);
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 const getBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
@@ -414,4 +420,5 @@ export {
   getBookings as getAllBookings,
   getBooking,
   updateBooking,
+  confirmBooking,
 };

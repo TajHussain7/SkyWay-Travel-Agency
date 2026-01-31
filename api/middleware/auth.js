@@ -1,11 +1,9 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
-// Protect routes - verify JWT token
 const protect = async (req, res, next) => {
   let token;
 
-  // Check for token in cookies first, then headers
   if (req.cookies && req.cookies.token) {
     token = req.cookies.token;
   } else if (
@@ -15,7 +13,6 @@ const protect = async (req, res, next) => {
     token = req.headers.authorization.split(" ")[1];
   }
 
-  // Make sure token exists
   if (!token) {
     return res.status(401).json({
       success: false,
@@ -24,10 +21,8 @@ const protect = async (req, res, next) => {
   }
 
   try {
-    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Get user from the token
     req.user = await User.findById(decoded.id);
 
     if (!req.user) {
@@ -47,7 +42,6 @@ const protect = async (req, res, next) => {
   }
 };
 
-// Admin role check
 const admin = (req, res, next) => {
   if (req.user && req.user.role === "admin") {
     next();
@@ -59,7 +53,6 @@ const admin = (req, res, next) => {
   }
 };
 
-// User role check (user or admin)
 const user = (req, res, next) => {
   if (req.user && (req.user.role === "user" || req.user.role === "admin")) {
     next();

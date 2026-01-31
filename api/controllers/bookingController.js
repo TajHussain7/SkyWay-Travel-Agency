@@ -1,12 +1,16 @@
 import Flight from "../models/Flight.js";
 import Booking from "../models/Booking.js";
 import PackageOffer from "../models/PackageOffer.js";
+import {
+  archivePastBookings,
+  archivePastFlights,
+} from "../utils/archiveBookings.js";
 
-// @desc    Get all available flights
-// @route   GET /api/booking/flights
-// @access  Public
 const getFlights = async (req, res) => {
   try {
+    // Auto-archive past flights before fetching
+    await archivePastFlights();
+
     const flights = await Flight.find({
       status: { $in: ["scheduled", "active"] },
       isArchived: { $ne: true },
@@ -30,12 +34,6 @@ const getFlights = async (req, res) => {
   }
 };
 
-// @desc    Search flights
-// @route   GET /api/booking/flights/search
-// @access  Public
-// @desc    Search flights
-// @route   GET /api/booking/flights/search
-// @access  Public
 const searchFlights = async (req, res) => {
   try {
     const { origin, destination, date, airline } = req.query;
@@ -43,16 +41,14 @@ const searchFlights = async (req, res) => {
     let flights = await Flight.search(
       origin,
       destination,
-      date ? new Date(date) : null
+      date ? new Date(date) : null,
     );
 
-    // Filter by available seats
     flights = flights.filter((f) => f.availableSeats > 0);
 
-    // Filter by airline if specified
     if (airline && airline.trim() !== "") {
       flights = flights.filter(
-        (f) => f.airline.toLowerCase() === airline.toLowerCase()
+        (f) => f.airline.toLowerCase() === airline.toLowerCase(),
       );
     }
 
@@ -70,14 +66,10 @@ const searchFlights = async (req, res) => {
   }
 };
 
-// @desc    Create new booking
-// @route   POST /api/booking/create
-// @access  Private
 const createBooking = async (req, res) => {
   try {
-    const { flightId, passengers, seatCount } = req.body;
+    const { flightId, passengers, seatCount, seatNumbers } = req.body;
 
-    // Validate required fields
     if (!flightId || !passengers || !seatCount) {
       return res.status(400).json({
         success: false,
@@ -85,7 +77,17 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // Validate that seat count matches number of passengers
+    if (
+      !seatNumbers ||
+      !Array.isArray(seatNumbers) ||
+      seatNumbers.length !== seatCount
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Seat numbers are required and must match seat count",
+      });
+    }
+
     if (Array.isArray(passengers) && passengers.length !== seatCount) {
       return res.status(400).json({
         success: false,
@@ -93,7 +95,6 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // Check if flight exists and has available seats
     const flight = await Flight.findById(flightId);
     if (!flight) {
       return res.status(404).json({
@@ -109,27 +110,53 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // Calculate total price
+    const existingBookings = await Booking.find({
+      flightId,
+      status: { $in: ["pending", "confirmed"] },
+      seatNumbers: { $in: seatNumbers },
+    });
+
+    if (existingBookings.length > 0) {
+      const bookedSeats = existingBookings.flatMap((b) => b.seatNumbers);
+      const conflictingSeats = seatNumbers.filter((s) =>
+        bookedSeats.includes(s),
+      );
+      return res.status(400).json({
+        success: false,
+        message: `The following seats are already booked: ${conflictingSeats.join(
+          ", ",
+        )}`,
+      });
+    }
+
     const totalPrice = flight.price * seatCount;
 
-    // Create booking
     const booking = await Booking.create({
       userId: req.user.id,
+      bookingType: "flight",
       flightId,
       passengerDetails: passengers,
       seatCount,
+      seatNumbers,
       totalPrice,
       status: "pending",
     });
 
-    // Update flight available seats
+    //  (temporarily reserve)
     flight.availableSeats -= seatCount;
     await flight.save();
 
+    const populatedBooking = await Booking.findById(booking._id)
+      .populate(
+        "flightId",
+        "number origin destination departureTime arrivalTime airline",
+      )
+      .populate("userId", "name email");
+
     res.status(201).json({
       success: true,
-      message: "Booking created successfully",
-      data: booking.toJSON(),
+      message: "Booking created successfully. Awaiting admin confirmation.",
+      data: populatedBooking,
     });
   } catch (error) {
     console.error("Create booking error:", error);
@@ -140,9 +167,6 @@ const createBooking = async (req, res) => {
   }
 };
 
-// @desc    Get booking by ID
-// @route   GET /api/booking/:id
-// @access  Private
 const getBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
@@ -154,7 +178,6 @@ const getBooking = async (req, res) => {
       });
     }
 
-    // Check if user owns this booking (unless admin)
     if (booking.userId !== req.user.id && req.user.role !== "admin") {
       return res.status(403).json({
         success: false,
@@ -175,9 +198,6 @@ const getBooking = async (req, res) => {
   }
 };
 
-// @desc    Update booking
-// @route   PUT /api/booking/:id
-// @access  Private
 const updateBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
@@ -189,7 +209,6 @@ const updateBooking = async (req, res) => {
       });
     }
 
-    // Check if user owns this booking (unless admin)
     if (booking.userId !== req.user.id && req.user.role !== "admin") {
       return res.status(403).json({
         success: false,
@@ -197,7 +216,7 @@ const updateBooking = async (req, res) => {
       });
     }
 
-    // Only allow updating certain fields
+    // Update certain Details
     if (req.body.passengerDetails) {
       booking.passengerDetails = req.body.passengerDetails;
     }
@@ -218,9 +237,6 @@ const updateBooking = async (req, res) => {
   }
 };
 
-// @desc    Cancel booking
-// @route   DELETE /api/booking/:id
-// @access  Private
 const cancelBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
@@ -240,16 +256,25 @@ const cancelBooking = async (req, res) => {
       });
     }
 
-    // Update flight available seats
+    // Update flight available seats and booked count
     const flight = await Flight.findById(booking.flightId);
     if (flight) {
       flight.availableSeats += booking.seatCount;
+      // Update booked seats count
+      flight.bookedSeats = Math.max(
+        0,
+        (flight.bookedSeats || 0) - booking.seatCount,
+      );
       await flight.save();
     }
 
-    // Update booking status to cancelled
+    // Update booking status to cancelled and archive it
     booking.status = "cancelled";
-    await booking.save();
+    booking.isArchived = true;
+    booking.archivedAt = new Date();
+    booking.archivedReason = "cancelled";
+    // Save without validation to avoid issues with old bookings
+    await booking.save({ validateBeforeSave: false });
 
     res.status(200).json({
       success: true,
@@ -264,9 +289,6 @@ const cancelBooking = async (req, res) => {
   }
 };
 
-// @desc    Create package booking
-// @route   POST /api/booking/package/create
-// @access  Private
 const createPackageBooking = async (req, res) => {
   try {
     const { packageOfferId, passengers, personCount } = req.body;
@@ -360,18 +382,18 @@ const createPackageBooking = async (req, res) => {
   }
 };
 
-// @desc    Get user's bookings (both flights and packages)
-// @route   GET /api/booking/user/my-bookings
-// @access  Private
 const getUserBookings = async (req, res) => {
   try {
+    // Auto-archive past bookings before fetching active ones
+    await archivePastBookings(req.user.id);
+
     const bookings = await Booking.find({
       userId: req.user.id,
       isArchived: { $ne: true },
     })
       .populate(
         "flightId",
-        "number origin destination departureTime arrivalTime"
+        "number origin destination departureTime arrivalTime",
       )
       .populate("packageOfferId", "name category price image")
       .sort({ createdAt: -1 });
@@ -391,12 +413,12 @@ const getUserBookings = async (req, res) => {
   }
 };
 
-// @desc    Get user's archived/past bookings
-// @route   GET /api/booking/user/past-bookings
-// @access  Private
 const getUserPastBookings = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
+
+    // Auto-archive before fetching past bookings
+    await archivePastBookings(req.user.id);
 
     const bookings = await Booking.find({
       userId: req.user.id,
@@ -404,7 +426,7 @@ const getUserPastBookings = async (req, res) => {
     })
       .populate(
         "flightId",
-        "number origin destination departureTime arrivalTime airline"
+        "number origin destination departureTime arrivalTime airline",
       )
       .populate("packageOfferId", "name category price image")
       .sort({ archivedAt: -1 })
@@ -436,6 +458,36 @@ const getUserPastBookings = async (req, res) => {
   }
 };
 
+// Get booked seats for a specific flight
+const getFlightBookedSeats = async (req, res) => {
+  try {
+    const { flightId } = req.params;
+
+    // Get all confirmed and pending bookings for this flight
+    const bookings = await Booking.find({
+      flightId,
+      status: { $in: ["pending", "confirmed"] },
+      isArchived: { $ne: true },
+    }).select("seatNumbers");
+
+    // Flatten all seat numbers into a single array
+    const bookedSeats = bookings.flatMap(
+      (booking) => booking.seatNumbers || [],
+    );
+
+    res.status(200).json({
+      success: true,
+      bookedSeats: [...new Set(bookedSeats)], // Remove duplicates
+    });
+  } catch (error) {
+    console.error("Get flight booked seats error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching booked seats",
+    });
+  }
+};
+
 export {
   getFlights,
   searchFlights,
@@ -446,4 +498,5 @@ export {
   getBooking,
   updateBooking,
   cancelBooking,
+  getFlightBookedSeats,
 };

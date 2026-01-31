@@ -99,6 +99,15 @@ const flightSchema = new mongoose.Schema(
       type: String,
       enum: ["completed", "cancelled", "expired", "manual"],
     },
+    // Revenue and booking statistics
+    bookedSeats: {
+      type: Number,
+      default: 0,
+    },
+    revenueGenerated: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,

@@ -60,8 +60,12 @@ const MyBookings = () => {
         }
       );
       const bookingsData = response.data.data || [];
-      setBookings(bookingsData);
-      setFilteredBookings(bookingsData);
+
+      // Filter out archived bookings (should not happen, but safety check)
+      const activeBookings = bookingsData.filter((b) => !b.isArchived);
+
+      setBookings(activeBookings);
+      setFilteredBookings(activeBookings);
     } catch (error) {
       console.error("Error loading bookings:", error);
     } finally {
@@ -585,6 +589,13 @@ const MyBookings = () => {
                               {booking.seatCount || 1} passenger
                               {(booking.seatCount || 1) > 1 ? "s" : ""}
                             </span>
+                            {booking.seatNumbers &&
+                              booking.seatNumbers.length > 0 && (
+                                <div className="mt-1 text-xs text-gray-600">
+                                  <i className="fas fa-chair text-primary me-1"></i>
+                                  Seats: {booking.seatNumbers.join(", ")}
+                                </div>
+                              )}
                           </td>
                           <td className="px-4 py-4">
                             <span className="text-lg font-bold text-success">
@@ -664,9 +675,18 @@ const MyBookings = () => {
                             <div className="bg-primary text-white rounded-full w-10 h-10 flex items-center justify-center font-bold">
                               {index + 1}
                             </div>
-                            <h4 className="text-lg font-bold text-gray-900">
-                              Passenger {index + 1}
-                            </h4>
+                            <div className="flex-1">
+                              <h4 className="text-lg font-bold text-gray-900">
+                                Passenger {index + 1}
+                              </h4>
+                              {selectedBooking.seatNumbers &&
+                                selectedBooking.seatNumbers[index] && (
+                                  <p className="text-sm text-primary font-semibold mt-1">
+                                    <i className="fas fa-chair mr-1"></i>
+                                    Seat: {selectedBooking.seatNumbers[index]}
+                                  </p>
+                                )}
+                            </div>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="flex items-start gap-3">

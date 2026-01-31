@@ -49,7 +49,10 @@ const Dashboard = () => {
       const bookingsResponse = await axios.get("/api/user/bookings", {
         withCredentials: true,
       });
-      const bookings = bookingsResponse.data.data?.bookings || [];
+      const allBookings = bookingsResponse.data.data?.bookings || [];
+
+      // Filter out archived bookings - only show active bookings on dashboard
+      const bookings = allBookings.filter((b) => !b.isArchived);
 
       // Calculate stats
       const totalBookings = bookings.length;
@@ -97,7 +100,7 @@ const Dashboard = () => {
         const flights = flightsResponse.data.data || [];
         setAvailableFlights(flights.slice(0, 5));
       } catch (error) {
-        console.log("Error loading flights:", error);
+        console.error("Error loading flights:", error);
       }
     } catch (error) {
       console.error("Error loading dashboard data:", error);

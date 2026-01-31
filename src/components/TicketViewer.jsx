@@ -428,10 +428,12 @@ const TicketViewer = ({ booking, isOpen, onClose }) => {
                       </div>
                       <div>
                         <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1">
-                          Seats
+                          Seat Number
                         </p>
                         <p className="text-sm font-bold text-gray-800">
-                          {seatCount}
+                          {booking.seatNumbers && booking.seatNumbers.length > 0
+                            ? booking.seatNumbers.join(", ")
+                            : seatCount}
                         </p>
                       </div>
                       <div>

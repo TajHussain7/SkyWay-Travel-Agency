@@ -1,25 +1,12 @@
 import Flight from "../models/Flight.js";
 import Booking from "../models/Booking.js";
 
-/**
- * Archive Utility
- * Handles automatic and manual archiving of flights and bookings
- */
-
-// Configuration for auto-archiving
 const ARCHIVE_CONFIG = {
-  // Days after flight completion to archive bookings
   DAYS_AFTER_COMPLETION: 30,
-  // Days after cancellation to archive
   DAYS_AFTER_CANCELLATION: 7,
-  // Days after pending booking without confirmation to archive
   DAYS_PENDING_EXPIRY: 3,
 };
 
-/**
- * Update flight statuses based on departure time
- * - Marks flights as 'completed' if departure time has passed
- */
 export const updateFlightStatuses = async () => {
   const now = new Date();
 
@@ -36,9 +23,6 @@ export const updateFlightStatuses = async () => {
       }
     );
 
-    console.log(
-      `[Archive] Updated ${result.modifiedCount} flights to completed status`
-    );
     return result.modifiedCount;
   } catch (error) {
     console.error("[Archive] Error updating flight statuses:", error);
@@ -72,7 +56,6 @@ export const archiveCompletedFlights = async (
       }
     );
 
-    console.log(`[Archive] Archived ${result.modifiedCount} completed flights`);
     return result.modifiedCount;
   } catch (error) {
     console.error("[Archive] Error archiving completed flights:", error);
@@ -105,7 +88,6 @@ export const archiveCancelledFlights = async (
       }
     );
 
-    console.log(`[Archive] Archived ${result.modifiedCount} cancelled flights`);
     return result.modifiedCount;
   } catch (error) {
     console.error("[Archive] Error archiving cancelled flights:", error);
@@ -132,7 +114,6 @@ export const archiveCompletedBookings = async (
     const flightIds = completedFlights.map((f) => f._id);
 
     if (flightIds.length === 0) {
-      console.log("[Archive] No completed flights found for booking archival");
       return 0;
     }
 
@@ -151,9 +132,6 @@ export const archiveCompletedBookings = async (
       }
     );
 
-    console.log(
-      `[Archive] Archived ${result.modifiedCount} bookings for completed flights`
-    );
     return result.modifiedCount;
   } catch (error) {
     console.error("[Archive] Error archiving completed bookings:", error);
@@ -186,9 +164,6 @@ export const archiveCancelledBookings = async (
       }
     );
 
-    console.log(
-      `[Archive] Archived ${result.modifiedCount} cancelled bookings`
-    );
     return result.modifiedCount;
   } catch (error) {
     console.error("[Archive] Error archiving cancelled bookings:", error);
@@ -222,9 +197,6 @@ export const archiveExpiredPendingBookings = async (
       }
     );
 
-    console.log(
-      `[Archive] Archived ${result.modifiedCount} expired pending bookings`
-    );
     return result.modifiedCount;
   } catch (error) {
     console.error("[Archive] Error archiving expired pending bookings:", error);
@@ -349,7 +321,6 @@ export const unarchiveBooking = async (bookingId) => {
  * This should be called periodically (e.g., daily via cron job or on server start)
  */
 export const runAutoArchive = async () => {
-  console.log("[Archive] Starting automatic archive process...");
   const startTime = Date.now();
 
   try {
@@ -363,10 +334,6 @@ export const runAutoArchive = async () => {
     };
 
     const duration = Date.now() - startTime;
-    console.log(
-      `[Archive] Automatic archive completed in ${duration}ms`,
-      results
-    );
 
     return results;
   } catch (error) {

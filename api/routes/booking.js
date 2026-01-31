@@ -10,6 +10,7 @@ import {
   cancelBooking,
   getFlights,
   searchFlights,
+  getFlightBookedSeats,
 } from "../controllers/bookingController.js";
 import { protect, user } from "../middleware/auth.js";
 
@@ -22,6 +23,11 @@ router.get("/flights", getFlights);
 // @desc    Search flights
 // @access  Public
 router.get("/flights/search", searchFlights);
+
+// @route   GET /api/booking/flight/:flightId/seats
+// @desc    Get booked seats for a flight
+// @access  Public
+router.get("/flight/:flightId/seats", getFlightBookedSeats);
 
 // Apply authentication middleware to protected routes
 router.use(protect);

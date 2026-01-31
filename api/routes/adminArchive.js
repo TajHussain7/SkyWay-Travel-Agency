@@ -14,10 +14,6 @@ const router = express.Router();
 router.use(protect);
 router.use(requireAdmin);
 
-/**
- * GET /api/admin/archive/stats
- * Get archive statistics
- */
 router.get("/stats", async (req, res) => {
   try {
     const stats = await archiveUtils.getArchiveStats();
@@ -116,10 +112,8 @@ router.get("/bookings", async (req, res) => {
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
       .populate("userId", "name email phone")
-      .populate({
-        path: "flightId",
-        populate: ["origin", "destination"],
-      });
+      .populate("flightId")
+      .populate("packageOfferId");
 
     const total = await Booking.countDocuments(query);
 
@@ -258,7 +252,7 @@ router.post("/bulk/flights", async (req, res) => {
           archivedAt: new Date(),
           archivedReason: "manual",
         },
-      }
+      },
     );
 
     // Also archive related bookings
@@ -270,7 +264,7 @@ router.post("/bulk/flights", async (req, res) => {
           archivedAt: new Date(),
           archivedReason: "manual",
         },
-      }
+      },
     );
 
     res.json({
@@ -311,7 +305,7 @@ router.post("/bulk/bookings", async (req, res) => {
           archivedAt: new Date(),
           archivedReason: "manual",
         },
-      }
+      },
     );
 
     res.json({
@@ -512,7 +506,7 @@ router.put("/feedback/:id", async (req, res) => {
     const feedback = await Feedback.findByIdAndUpdate(
       id,
       { status },
-      { new: true }
+      { new: true },
     );
 
     if (!feedback) {
@@ -618,6 +612,117 @@ router.put("/contact-queries/:id", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to update contact query",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * DELETE /api/admin/archive/clear/bookings
+ * Permanently delete all archived bookings
+ */
+router.delete("/clear/bookings", async (req, res) => {
+  try {
+    const result = await Booking.deleteMany({ isArchived: true });
+    res.json({
+      success: true,
+      message: "All archived bookings deleted permanently",
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("Error clearing archived bookings:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to clear archived bookings",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * DELETE /api/admin/archive/clear/flights
+ * Permanently delete all archived flights
+ */
+router.delete("/clear/flights", async (req, res) => {
+  try {
+    const result = await Flight.deleteMany({ isArchived: true });
+    res.json({
+      success: true,
+      message: "All archived flights deleted permanently",
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("Error clearing archived flights:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to clear archived flights",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * DELETE /api/admin/archive/clear/users
+ * Permanently delete all archived users
+ */
+router.delete("/clear/users", async (req, res) => {
+  try {
+    const result = await User.deleteMany({ isArchived: true });
+    res.json({
+      success: true,
+      message: "All archived users deleted permanently",
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("Error clearing archived users:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to clear archived users",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * DELETE /api/admin/archive/clear/feedback
+ */
+router.delete("/clear/feedback", async (req, res) => {
+  try {
+    const result = await Feedback.deleteMany({ status: "resolved" });
+    res.json({
+      success: true,
+      message: "All resolved feedback deleted permanently",
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("Error clearing archived feedback:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to clear archived feedback",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * DELETE /api/admin/archive/clear/contact-queries
+ * Permanently delete all resolved and closed contact queries
+ */
+router.delete("/clear/contact-queries", async (req, res) => {
+  try {
+    const result = await ContactQuery.deleteMany({
+      status: { $in: ["resolved", "closed"] },
+    });
+    res.json({
+      success: true,
+      message: "All resolved/closed contact queries deleted permanently",
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("Error clearing archived contact queries:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to clear archived contact queries",
       error: error.message,
     });
   }

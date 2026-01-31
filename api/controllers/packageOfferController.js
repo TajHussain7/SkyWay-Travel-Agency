@@ -7,11 +7,10 @@ export const getAllPackageOffers = async (req, res) => {
 
     const filter = {};
 
-    // For public access, only show visible offers
     if (isVisible !== undefined) {
       filter.isVisible = isVisible === "true";
     } else {
-      filter.isVisible = true; // Default to visible only
+      filter.isVisible = true;
     }
 
     if (category) {

@@ -1,12 +1,7 @@
 import User from "../models/User.js";
 
-/**
- * Middleware to check if user has admin role
- * Must be used after authentication middleware
- */
 const requireAdmin = async (req, res, next) => {
   try {
-    // Check if user is authenticated
     if (!req.user) {
       return res.status(401).json({
         success: false,
@@ -14,7 +9,6 @@ const requireAdmin = async (req, res, next) => {
       });
     }
 
-    // Check if user has admin role
     if (req.user.role !== "admin") {
       return res.status(403).json({
         success: false,
@@ -22,7 +16,6 @@ const requireAdmin = async (req, res, next) => {
       });
     }
 
-    // User is admin, proceed to next middleware
     next();
   } catch (error) {
     console.error("Admin check error:", error);
@@ -33,9 +26,6 @@ const requireAdmin = async (req, res, next) => {
   }
 };
 
-/**
- * Middleware to check if user is admin or the same user (for user profile operations)
- */
 const requireAdminOrSelf = async (req, res, next) => {
   try {
     if (!req.user) {
@@ -47,7 +37,6 @@ const requireAdminOrSelf = async (req, res, next) => {
 
     const targetUserId = req.params.userId || req.params.id;
 
-    // Allow if user is admin OR if user is accessing their own data
     if (req.user.role === "admin" || req.user.id === targetUserId) {
       next();
     } else {
@@ -65,10 +54,7 @@ const requireAdminOrSelf = async (req, res, next) => {
   }
 };
 
-/**
- * Check if current user is a super admin (for critical operations)
- * Super admin is defined as the default admin user
- */
+//super admin
 const requireSuperAdmin = async (req, res, next) => {
   try {
     if (!req.user) {
@@ -78,7 +64,6 @@ const requireSuperAdmin = async (req, res, next) => {
       });
     }
 
-    // Check if user is the default admin
     if (req.user.email !== "admin@skyway.com" || req.user.role !== "admin") {
       return res.status(403).json({
         success: false,
@@ -98,5 +83,5 @@ const requireSuperAdmin = async (req, res, next) => {
 
 export { requireAdmin, requireAdminOrSelf, requireSuperAdmin };
 
-// Export adminOnly as an alias for requireAdmin for backward compatibility
+//aliasing
 export const adminOnly = requireAdmin;

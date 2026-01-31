@@ -1,27 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { AnimatedTicket } from "./ui/TicketConfirmationCard";
 
-/**
- * BookingSuccessAnimation - Shows a beautiful ticket confirmation card
- * with confetti animation after a successful booking.
- *
- * Props:
- * - isVisible: boolean - Controls visibility of the modal
- * - onAnimationComplete: function - Callback when animation completes
- * - bookingDetails: object - Optional booking details to display
- *   - ticketId: string - Booking/ticket ID
- *   - amount: number - Total amount
- *   - date: Date - Booking date/time
- *   - cardHolder: string - Payment card holder name
- *   - last4Digits: string - Last 4 digits of payment card
- *   - barcodeValue: string - Value for barcode display
- */
 const BookingSuccessAnimation = ({
   isVisible,
   onAnimationComplete,
   bookingDetails,
 }) => {
-  const [phase, setPhase] = useState(0); // 0: hidden, 1: showing, 2: fade out
+  const [phase, setPhase] = useState(0);
 
   // Generate random booking ID if not provided
   const generateBookingId = useCallback(() => {

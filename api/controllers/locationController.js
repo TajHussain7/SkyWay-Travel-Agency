@@ -1,6 +1,5 @@
 import Location from "../models/Location.js";
 
-// Get all active locations
 const getLocations = async (req, res) => {
   try {
     const locations = await Location.find({ isActive: true }).sort({ name: 1 });
@@ -39,7 +38,6 @@ const createLocation = async (req, res) => {
   try {
     const { name, type, country, code } = req.body;
 
-    // Check if location already exists
     const existingLocation = await Location.findOne({ name });
     if (existingLocation) {
       return res.status(400).json({
@@ -81,7 +79,7 @@ const updateLocation = async (req, res) => {
     const location = await Location.findByIdAndUpdate(
       id,
       { name, type, country, code, isActive },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     if (!location) {

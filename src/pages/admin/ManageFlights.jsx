@@ -268,7 +268,22 @@ const ManageFlights = () => {
   };
 
   const handleEditFormChange = (field, value) => {
-    setEditFormData({ ...editFormData, [field]: value });
+    // If totalSeats is being changed, adjust availableSeats proportionally
+    if (field === "totalSeats") {
+      const oldTotalSeats = selectedFlight.totalSeats;
+      const oldAvailableSeats = selectedFlight.availableSeats || oldTotalSeats;
+      const bookedSeats = oldTotalSeats - oldAvailableSeats;
+      const newTotalSeats = parseInt(value) || 0;
+      const newAvailableSeats = Math.max(0, newTotalSeats - bookedSeats);
+
+      setEditFormData({
+        ...editFormData,
+        [field]: value,
+        availableSeats: newAvailableSeats,
+      });
+    } else {
+      setEditFormData({ ...editFormData, [field]: value });
+    }
   };
 
   const handleUpdateFlight = async () => {

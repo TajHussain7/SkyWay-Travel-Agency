@@ -35,6 +35,19 @@ const bookingSchema = new mongoose.Schema(
       min: [1, "Seat count must be at least 1"],
       max: [10, "Cannot book more than 10 seats at once"],
     },
+    seatNumbers: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: function (seats) {
+          if (this.bookingType === "flight" && this.seatCount) {
+            return seats.length === this.seatCount;
+          }
+          return true;
+        },
+        message: "Number of seat numbers must match seat count",
+      },
+    },
     personCount: {
       type: Number,
       required: function () {
@@ -56,7 +69,12 @@ const bookingSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ["pending", "confirmed", "cancelled"],
-      default: "confirmed",
+      default: "pending",
+    },
+    ticketNumber: {
+      type: String,
+      unique: true,
+      sparse: true,
     },
     passengerDetails: [
       {
@@ -114,7 +132,7 @@ const bookingSchema = new mongoose.Schema(
   }
 );
 
-// Generate booking reference before saving
+// Generate booking reference and ticket number before saving
 bookingSchema.pre("save", function (next) {
   if (!this.bookingReference) {
     const timestamp = Date.now().toString().slice(-6);
@@ -123,6 +141,16 @@ bookingSchema.pre("save", function (next) {
       .padStart(3, "0");
     this.bookingReference = `SW${new Date().getFullYear()}${timestamp}${random}`;
   }
+
+  // Generate ticket number only when confirmed
+  if (this.status === "confirmed" && !this.ticketNumber) {
+    const timestamp = Date.now().toString().slice(-6);
+    const random = Math.floor(Math.random() * 10000)
+      .toString()
+      .padStart(4, "0");
+    this.ticketNumber = `TKT${new Date().getFullYear()}${timestamp}${random}`;
+  }
+
   next();
 });
 

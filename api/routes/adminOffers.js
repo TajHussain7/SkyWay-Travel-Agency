@@ -3,9 +3,6 @@ const router = express.Router();
 import Offer from "../models/Offer.js";
 import { protect, admin } from "../middleware/auth.js";
 
-// @route   GET /api/admin/offers
-// @desc    Get all offers (Admin only)
-// @access  Private/Admin
 router.get("/", protect, admin, async (req, res) => {
   try {
     const { type, status, page = 1, limit = 10 } = req.query;
@@ -47,9 +44,6 @@ router.get("/", protect, admin, async (req, res) => {
   }
 });
 
-// @route   GET /api/admin/offers/stats
-// @desc    Get offer statistics (Admin only)
-// @access  Private/Admin
 router.get("/stats", protect, admin, async (req, res) => {
   try {
     const totalOffers = await Offer.countDocuments();
@@ -105,9 +99,6 @@ router.get("/stats", protect, admin, async (req, res) => {
   }
 });
 
-// @route   POST /api/admin/offers
-// @desc    Create new offer (Admin only)
-// @access  Private/Admin
 router.post("/", protect, admin, async (req, res) => {
   try {
     const {
@@ -203,9 +194,6 @@ router.post("/", protect, admin, async (req, res) => {
   }
 });
 
-// @route   PUT /api/admin/offers/:id
-// @desc    Update offer (Admin only)
-// @access  Private/Admin
 router.put("/:id", protect, admin, async (req, res) => {
   try {
     const offer = await Offer.findById(req.params.id);
@@ -285,9 +273,6 @@ router.put("/:id", protect, admin, async (req, res) => {
   }
 });
 
-// @route   DELETE /api/admin/offers/:id
-// @desc    Delete offer (Admin only)
-// @access  Private/Admin
 router.delete("/:id", protect, admin, async (req, res) => {
   try {
     const offer = await Offer.findById(req.params.id);
@@ -330,7 +315,6 @@ router.get("/:id", protect, admin, async (req, res) => {
     const offer = await Offer.findById(req.params.id)
       .populate("createdBy", "name email")
       .populate("usedBy.userId", "name email");
-
     if (!offer) {
       return res.status(404).json({
         success: false,

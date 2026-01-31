@@ -26,6 +26,7 @@
     "jspdf": "^4.0.0",
     "lucide-react": "^0.562.0",
     "mongoose": "^8.0.3",
+    "node-cron": "^3.0.3",
     "primeicons": "^7.0.0",
     "primereact": "^10.9.7",
     "qrcode": "^1.5.4",

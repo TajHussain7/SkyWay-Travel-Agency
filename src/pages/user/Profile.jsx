@@ -404,17 +404,10 @@ const Profile = () => {
         type: "account_deletion",
       });
 
-      console.log("Feedback submitted successfully:", response.data);
-
-      // Clear auth and redirect
       setShowFeedbackModal(false);
       navigate("/login");
     } catch (error) {
-      console.error(
-        "Error submitting feedback:",
-        error.response?.data || error.message
-      );
-      // Still redirect even if feedback fails
+      console.error("Error submitting feedback:", error.message);
       setShowFeedbackModal(false);
       navigate("/login");
     } finally {
@@ -666,7 +659,7 @@ const Profile = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, phone: e.target.value })
                     }
-                    placeholder="+1 (555) 123-4567"
+                    placeholder="+92 343 8002500"
                   />
                 </div>
                 <div className="form-group">
@@ -699,7 +692,7 @@ const Profile = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, address: e.target.value })
                     }
-                    placeholder="123 Main St, City, Country"
+                    placeholder="Main Street, City, Country"
                   />
                 </div>
                 <div className="form-group">

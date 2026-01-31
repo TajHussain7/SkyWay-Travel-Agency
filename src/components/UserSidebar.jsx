@@ -53,8 +53,8 @@ const UserSidebar = ({ isExpanded, setIsExpanded }) => {
   const menuItems = [
     { path: "/dashboard", icon: "fa-tachometer-alt", label: "Dashboard" },
     { path: "/my-bookings", icon: "fa-ticket-alt", label: "My Bookings" },
-    { path: "/past-bookings", icon: "fa-archive", label: "Past Bookings" },
     { path: "/package-offers", icon: "fa-tags", label: "Package Offers" },
+    { path: "/past-bookings", icon: "fa-archive", label: "Past Bookings" },
     { path: "/flights", icon: "fa-search", label: "Search Flights" },
     { path: "/profile", icon: "fa-user", label: "Profile" },
   ];

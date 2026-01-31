@@ -4,6 +4,7 @@ import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import BookingSuccessAnimation from "../../components/BookingSuccessAnimation";
 import SuccessToast from "../../components/SuccessToast";
+import SeatSelectionModal from "../../components/SeatSelectionModal";
 import axios from "axios";
 import { Dropdown } from "primereact/dropdown";
 import { Calendar } from "primereact/calendar";
@@ -42,6 +43,7 @@ const Flights = () => {
   const [user, setUser] = useState(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
+  const [showSeatSelectionModal, setShowSeatSelectionModal] = useState(false);
   const [showBookingSuccess, setShowBookingSuccess] = useState(false);
   const [showErrorToast, setShowErrorToast] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -49,6 +51,7 @@ const Flights = () => {
   const [lastBookingDetails, setLastBookingDetails] = useState(null);
   const [bookingFormData, setBookingFormData] = useState({
     seatCount: 1,
+    seatNumbers: [],
     passengers: [
       {
         name: "",
@@ -159,9 +162,7 @@ const Flights = () => {
   const fetchLocations = async () => {
     try {
       const response = await axios.get("/api/locations");
-      console.log("Locations API response:", response.data);
       if (response.data.success) {
-        // Transform locations for PrimeReact Dropdown
         const transformedLocations = response.data.data.map((loc) => ({
           label: `${loc.name}${loc.country ? ` (${loc.country})` : ""}`,
           value: loc.name,
@@ -169,11 +170,6 @@ const Flights = () => {
           country: loc.country,
         }));
         setLocations(transformedLocations);
-        console.log(
-          "Locations loaded:",
-          transformedLocations.length,
-          "locations"
-        );
       }
     } catch (error) {
       console.error("Error fetching locations:", error);
@@ -214,6 +210,7 @@ const Flights = () => {
       setShowBookingModal(true);
       setBookingFormData({
         seatCount: 1,
+        seatNumbers: [],
         passengers: [
           {
             name: "",
@@ -238,8 +235,10 @@ const Flights = () => {
       );
     }
     setBookingFormData({
+      ...bookingFormData,
       seatCount: newCount,
       passengers,
+      seatNumbers: [], // Reset seat selection when count changes
     });
   };
 
@@ -254,12 +253,24 @@ const Flights = () => {
 
   const handleBookingSubmit = async (e) => {
     e.preventDefault();
+
+    // Check if seats are selected
+    if (
+      !bookingFormData.seatNumbers ||
+      bookingFormData.seatNumbers.length === 0
+    ) {
+      setShowBookingModal(false);
+      setShowSeatSelectionModal(true);
+      return;
+    }
+
     try {
       const response = await axios.post(
         "/api/booking/create",
         {
           flightId: selectedFlight._id,
           seatCount: bookingFormData.seatCount,
+          seatNumbers: bookingFormData.seatNumbers,
           passengers: bookingFormData.passengers,
         },
         { withCredentials: true }
@@ -272,6 +283,7 @@ const Flights = () => {
         // Store booking details for the success animation
         setLastBookingDetails({
           ticketId:
+            response.data.data?.bookingReference ||
             response.data.booking?._id?.slice(-10).toUpperCase() ||
             `SKY${Date.now().toString().slice(-10)}`,
           amount: totalAmount,
@@ -280,17 +292,23 @@ const Flights = () => {
             bookingFormData.passengers[0]?.name || user?.name || "Guest",
           last4Digits: "", // Can be added if payment integration exists
           barcodeValue: Math.random().toString().slice(2, 16),
-          title: "Booking Confirmed!",
+          title: "Booking Submitted!",
           subtitle: `${selectedFlight.origin} → ${
             selectedFlight.destination
           } • ${bookingFormData.seatCount} seat${
             bookingFormData.seatCount > 1 ? "s" : ""
-          }`,
+          } • Seats: ${bookingFormData.seatNumbers.join(", ")}`,
         });
 
         setShowBookingModal(false);
         setShowBookingSuccess(true);
         fetchFlights(); // Refresh flights to update available seats
+
+        // Reset seat selection
+        setBookingFormData((prev) => ({
+          ...prev,
+          seatNumbers: [],
+        }));
       }
     } catch (error) {
       console.error("Booking error:", error);
@@ -300,6 +318,15 @@ const Flights = () => {
       setErrorMessage(errorMsg);
       setShowErrorToast(true);
     }
+  };
+
+  const handleSeatConfirmation = (selectedSeats) => {
+    setBookingFormData((prev) => ({
+      ...prev,
+      seatNumbers: selectedSeats,
+    }));
+    setShowSeatSelectionModal(false);
+    setShowBookingModal(true);
   };
 
   const handleAnimationComplete = () => {
@@ -995,6 +1022,23 @@ const Flights = () => {
                     {selectedFlight.availableSeats} seats available
                   </span>
                 </div>
+
+                {/* Select Seats Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowBookingModal(false);
+                    setShowSeatSelectionModal(true);
+                  }}
+                  className="mt-3 w-full btn btn-outline btn-primary"
+                >
+                  <i className="fas fa-chair me-2"></i>
+                  {bookingFormData.seatNumbers.length > 0
+                    ? `Change Selected Seats (${bookingFormData.seatNumbers.join(
+                        ", "
+                      )})`
+                    : "Select Seats"}
+                </button>
               </div>
 
               {/* Passenger Details */}
@@ -1153,6 +1197,18 @@ const Flights = () => {
           </div>
         </div>
       )}
+
+      {/* Seat Selection Modal */}
+      <SeatSelectionModal
+        isOpen={showSeatSelectionModal}
+        onClose={() => {
+          setShowSeatSelectionModal(false);
+          setShowBookingModal(true);
+        }}
+        flight={selectedFlight}
+        seatCount={bookingFormData.seatCount}
+        onConfirm={handleSeatConfirmation}
+      />
 
       {/* Booking Success Animation */}
       <BookingSuccessAnimation

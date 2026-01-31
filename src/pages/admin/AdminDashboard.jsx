@@ -627,20 +627,6 @@ const AdminDashboard = () => {
                   </span>
                 </button>
                 <button
-                  className="flex flex-col items-center gap-3 p-6 bg-purple-50 hover:bg-purple-100 rounded-lg transition-all duration-300 group"
-                  onClick={() => {
-                    navigate("/admin/reports");
-                    setShowQuickActions(false);
-                  }}
-                >
-                  <div className="w-16 h-16 bg-purple-500 text-white rounded-full flex items-center justify-center text-2xl group-hover:scale-110 transition-transform duration-300">
-                    <i className="fas fa-chart-line"></i>
-                  </div>
-                  <span className="font-semibold text-gray-900">
-                    View Reports
-                  </span>
-                </button>
-                <button
                   className="flex flex-col items-center gap-3 p-6 bg-orange-50 hover:bg-orange-100 rounded-lg transition-all duration-300 group"
                   onClick={() => {
                     navigate("/admin/settings");
@@ -749,8 +735,100 @@ const AdminDashboard = () => {
                       {selectedBooking.passengerDetails?.length || 0}
                     </p>
                   </div>
+                  {selectedBooking.seatNumbers &&
+                    selectedBooking.seatNumbers.length > 0 && (
+                      <div className="md:col-span-2">
+                        <label className="text-sm text-gray-600 font-semibold">
+                          Seat Numbers
+                        </label>
+                        <p className="text-gray-900">
+                          <i className="fas fa-chair text-primary mr-2"></i>
+                          {selectedBooking.seatNumbers.join(", ")}
+                        </p>
+                      </div>
+                    )}
                 </div>
               </div>
+
+              {/* Passenger Details */}
+              {selectedBooking.passengerDetails &&
+                selectedBooking.passengerDetails.length > 0 && (
+                  <div className="bg-green-50 rounded-lg p-4">
+                    <h4 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                      <i className="fas fa-users text-green-600 mr-2"></i>
+                      Passenger Details (
+                      {selectedBooking.passengerDetails.length})
+                    </h4>
+                    <div className="space-y-3">
+                      {selectedBooking.passengerDetails.map(
+                        (passenger, index) => (
+                          <div
+                            key={index}
+                            className="bg-white p-4 rounded-lg border border-green-200"
+                          >
+                            <div className="flex items-center gap-3 mb-3">
+                              <span className="bg-green-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">
+                                {index + 1}
+                              </span>
+                              <div className="flex-1">
+                                <p className="font-bold text-gray-900 text-lg">
+                                  {passenger.name || "N/A"}
+                                </p>
+                                {selectedBooking.seatNumbers &&
+                                  selectedBooking.seatNumbers[index] && (
+                                    <p className="text-sm text-primary font-semibold">
+                                      <i className="fas fa-chair mr-1"></i>
+                                      Seat: {selectedBooking.seatNumbers[index]}
+                                    </p>
+                                  )}
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                              <div>
+                                <span className="text-gray-600">Age:</span>
+                                <span className="ml-2 text-gray-900 font-medium">
+                                  {passenger.age || "N/A"}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">Gender:</span>
+                                <span className="ml-2 text-gray-900 font-medium capitalize">
+                                  {passenger.gender || "N/A"}
+                                </span>
+                              </div>
+                              {passenger.email && (
+                                <div className="col-span-2">
+                                  <span className="text-gray-600">Email:</span>
+                                  <span className="ml-2 text-gray-900 font-medium">
+                                    {passenger.email}
+                                  </span>
+                                </div>
+                              )}
+                              {passenger.phone && (
+                                <div className="col-span-2">
+                                  <span className="text-gray-600">Phone:</span>
+                                  <span className="ml-2 text-gray-900 font-medium">
+                                    {passenger.phone}
+                                  </span>
+                                </div>
+                              )}
+                              {passenger.passportNumber && (
+                                <div className="col-span-2">
+                                  <span className="text-gray-600">
+                                    Passport:
+                                  </span>
+                                  <span className="ml-2 text-gray-900 font-mono font-medium">
+                                    {passenger.passportNumber}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
 
               {/* Customer Information */}
               <div className="bg-blue-50 rounded-lg p-4">

@@ -4,22 +4,26 @@ import Flight from "../models/Flight.js";
 import Feedback from "../models/Feedback.js";
 import ContactQuery from "../models/ContactQuery.js";
 
-// @desc    Get user dashboard
-// @route   GET /api/user/dashboard
-// @access  Private
 const getDashboard = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Get user's bookings with populated flight details
-    const userBookings = await Booking.find({ userId })
+    // Get user's NON-ARCHIVED bookings with populated flight details
+    const userBookings = await Booking.find({
+      userId,
+      isArchived: { $ne: true },
+    })
       .populate("flightId")
+      .populate("packageOfferId")
       .sort({ createdAt: -1 })
       .lean();
 
+    // Auto-archive past bookings (based on departure date or creation date)
+    await archivePastBookings(userId);
+
     const recentBookings = userBookings.slice(0, 5);
 
-    // Get booking statistics
+    // Get booking statistics (only non-archived)
     const totalBookings = userBookings.length;
     const confirmedBookings = userBookings.filter(
       (b) => b.status === "confirmed"
@@ -50,9 +54,65 @@ const getDashboard = async (req, res) => {
   }
 };
 
-// @desc    Book a flight
-// @route   POST /api/user/book
-// @access  Private
+// Helper function to auto-archive past bookings
+const archivePastBookings = async (userId) => {
+  try {
+    const now = new Date();
+
+    // Find bookings that should be archived
+    const bookingsToArchive = await Booking.find({
+      userId,
+      isArchived: { $ne: true },
+    })
+      .populate("flightId")
+      .populate("packageOfferId");
+
+    for (const booking of bookingsToArchive) {
+      let shouldArchive = false;
+      let reason = "manual";
+
+      if (booking.bookingType === "flight" && booking.flightId) {
+        // Archive if flight departure time has passed
+        const departureTime = new Date(booking.flightId.departureTime);
+        if (departureTime < now) {
+          shouldArchive = true;
+          reason =
+            booking.status === "confirmed"
+              ? "completed"
+              : booking.status === "cancelled"
+              ? "cancelled"
+              : "expired";
+        }
+      } else if (booking.bookingType === "package" && booking.packageOfferId) {
+        // Archive if booking date is more than 90 days old
+        const bookingDate = new Date(booking.createdAt);
+        const daysDiff = Math.floor(
+          (now - bookingDate) / (1000 * 60 * 60 * 24)
+        );
+
+        // Archive cancelled bookings immediately, others after 90 days
+        if (booking.status === "cancelled") {
+          shouldArchive = true;
+          reason = "cancelled";
+        } else if (daysDiff > 90) {
+          shouldArchive = true;
+          reason = booking.status === "confirmed" ? "completed" : "expired";
+        }
+      }
+
+      // Archive the booking if conditions are met
+      if (shouldArchive) {
+        booking.isArchived = true;
+        booking.archivedAt = now;
+        booking.archivedReason = reason;
+        await booking.save();
+      }
+    }
+  } catch (error) {
+    console.error("Error auto-archiving past bookings:", error);
+  }
+};
+
 const bookFlight = async (req, res) => {
   try {
     const { flightId, seatCount, passengerDetails } = req.body;
@@ -114,9 +174,6 @@ const bookFlight = async (req, res) => {
   }
 };
 
-// @desc    Get user bookings
-// @route   GET /api/user/bookings
-// @access  Private
 const getBookings = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -124,9 +181,15 @@ const getBookings = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const total = await Booking.countDocuments({ userId });
-    const bookings = await Booking.find({ userId })
+    const query = {
+      userId,
+      isArchived: { $ne: true },
+    };
+
+    const total = await Booking.countDocuments(query);
+    const bookings = await Booking.find(query)
       .populate("flightId")
+      .populate("packageOfferId")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -152,9 +215,6 @@ const getBookings = async (req, res) => {
   }
 };
 
-// @desc    Get single booking
-// @route   GET /api/user/bookings/:id
-// @access  Private
 const getBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
@@ -181,9 +241,6 @@ const getBooking = async (req, res) => {
   }
 };
 
-// @desc    Cancel booking
-// @route   PUT /api/user/bookings/:id/cancel
-// @access  Private
 const cancelBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
@@ -204,15 +261,14 @@ const cancelBooking = async (req, res) => {
 
     // Update booking status
     booking.status = "cancelled";
-    await booking.save();
 
-    // Return seats to flight
-    const flight = await Flight.findById(booking.flightId);
-    if (flight) {
-      flight.availableSeats += booking.seatCount;
-      await flight.save();
-    }
+    // Archive cancelled bookings immediately
+    booking.isArchived = true;
+    booking.archivedAt = new Date();
+    booking.archivedReason = "cancelled";
 
+    // Save without validation to avoid issues with old bookings
+    await booking.save({ validateBeforeSave: false });
     res.status(200).json({
       success: true,
       message: "Booking cancelled successfully",
@@ -228,9 +284,6 @@ const cancelBooking = async (req, res) => {
   }
 };
 
-// @desc    Update user profile
-// @route   PUT /api/user/profile
-// @access  Private
 const updateProfile = async (req, res) => {
   try {
     const { name, email, phone, dateOfBirth, address, passport, profileImage } =
@@ -281,9 +334,6 @@ const updateProfile = async (req, res) => {
   }
 };
 
-// @desc    Change user password
-// @route   PUT /api/user/change-password
-// @access  Private
 const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -339,9 +389,6 @@ const changePassword = async (req, res) => {
   }
 };
 
-// @desc    Delete user account (soft delete - archive)
-// @route   DELETE /api/user/account
-// @access  Private
 const deleteAccount = async (req, res) => {
   try {
     const { password, feedback } = req.body;
@@ -404,9 +451,6 @@ const deleteAccount = async (req, res) => {
   }
 };
 
-// @desc    Submit feedback after account deletion
-// @route   POST /api/user/feedback
-// @access  Public (for recently deleted users)
 const submitFeedback = async (req, res) => {
   try {
     const { email, name, rating, message, type } = req.body;
@@ -443,9 +487,6 @@ const submitFeedback = async (req, res) => {
   }
 };
 
-// @desc    Submit contact/support query
-// @route   POST /api/contact
-// @access  Public
 const submitContactQuery = async (req, res) => {
   try {
     const { name, email, phone, subject, message, type } = req.body;

@@ -1,21 +1,16 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
-// Generate JWT Token
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRE || "7d",
   });
 };
 
-// @desc    Register user
-// @route   POST /api/auth/register
-// @access  Public
 const register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
 
-    // Create user
     const user = await User.create({
       name,
       email,
@@ -23,14 +18,12 @@ const register = async (req, res) => {
       role: role || "user",
     });
 
-    // Generate token
     const token = generateToken(user._id);
 
-    // Set cookie
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     res.status(201).json({
@@ -54,14 +47,10 @@ const register = async (req, res) => {
   }
 };
 
-// @desc    Login user
-// @route   POST /api/auth/login
-// @access  Public
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validate email and password
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -69,7 +58,6 @@ const login = async (req, res) => {
       });
     }
 
-    // Check for user - select password field
     const user = await User.findOne({ email: email.toLowerCase() }).select(
       "+password"
     );
@@ -80,7 +68,6 @@ const login = async (req, res) => {
       });
     }
 
-    // Check if password matches
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
       return res.status(401).json({
@@ -89,12 +76,10 @@ const login = async (req, res) => {
       });
     }
 
-    // Auto-restore if archived within 24 hours
     if (user.isArchived && user.archiveExpiresAt) {
       const now = new Date();
       const expiryTime = new Date(user.archiveExpiresAt);
 
-      // If still within 24-hour window, restore the account
       if (now < expiryTime) {
         user.isArchived = false;
         user.archivedAt = null;
@@ -103,7 +88,6 @@ const login = async (req, res) => {
         user.deletionFeedback = null;
         await user.save();
       } else {
-        // Account archive expired, user cannot login
         return res.status(401).json({
           success: false,
           message:
@@ -112,14 +96,12 @@ const login = async (req, res) => {
       }
     }
 
-    // Generate token
     const token = generateToken(user._id);
 
-    // Set cookie
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     res.status(200).json({
@@ -148,12 +130,8 @@ const login = async (req, res) => {
   }
 };
 
-// @desc    Logout user
-// @route   POST /api/auth/logout
-// @access  Private
 const logout = async (req, res) => {
   try {
-    // Clear cookie
     res.cookie("token", "none", {
       expires: new Date(Date.now() + 10 * 1000),
       httpOnly: true,
@@ -171,9 +149,6 @@ const logout = async (req, res) => {
   }
 };
 
-// @desc    Get current logged in user
-// @route   GET /api/auth/me
-// @access  Private
 const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);

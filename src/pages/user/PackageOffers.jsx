@@ -66,7 +66,7 @@ const PackageOffers = () => {
         setCategories(uniqueCategories);
       }
     } catch (error) {
-      console.log("Error loading package offers:", error);
+      console.error("Error loading package offers:", error);
     } finally {
       setLoading(false);
     }

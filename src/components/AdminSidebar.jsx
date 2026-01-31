@@ -57,9 +57,9 @@ const AdminSidebar = ({ isExpanded, setIsExpanded }) => {
     { path: "/admin/flights", icon: "fa-plane", label: "Manage Flights" },
     { path: "/admin/offers", icon: "fa-tags", label: "Manage Offers" },
     { path: "/admin/umrah", icon: "fa-kaaba", label: "Hajj & Umrah" },
-    { path: "/admin/locations", icon: "fa-map-marker-alt", label: "Locations" },
+    { path: "/admin/seating", icon: "fa-chair", label: "Seating" },
     { path: "/admin/archive", icon: "fa-archive", label: "Archive" },
-    { path: "/admin/reports", icon: "fa-chart-line", label: "Reports" },
+    { path: "/admin/locations", icon: "fa-map-marker-alt", label: "Locations" },
     { path: "/admin/settings", icon: "fa-cog", label: "Settings" },
   ];
 
