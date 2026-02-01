@@ -11,11 +11,36 @@ import {
 } from "../controllers/userController.js";
 import { protect, user } from "../middleware/auth.js";
 
-// Public routes (no auth required)
+// Public/Protected feedback route (works for both authenticated and non-authenticated)
 // @route   POST /api/user/feedback
-// @desc    Submit feedback (for recently deleted users)
-// @access  Public
-router.post("/feedback", submitFeedback);
+// @desc    Submit feedback
+// @access  Public/Protected
+router.post("/feedback", (req, res, next) => {
+  // Try to authenticate but don't fail if token is missing
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer")
+  ) {
+    protect(req, res, (err) => {
+      if (!err) {
+        return submitFeedback(req, res);
+      }
+      // If authentication fails, continue as unauthenticated
+      return submitFeedback(req, res);
+    });
+  } else if (req.cookies && req.cookies.token) {
+    protect(req, res, (err) => {
+      if (!err) {
+        return submitFeedback(req, res);
+      }
+      // If authentication fails, continue as unauthenticated
+      return submitFeedback(req, res);
+    });
+  } else {
+    // No authentication attempt, proceed as unauthenticated
+    return submitFeedback(req, res);
+  }
+});
 
 // Apply authentication middleware to protected routes
 router.use(protect);

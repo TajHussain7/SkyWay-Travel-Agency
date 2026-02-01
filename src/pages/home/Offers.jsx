@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
+import ScrollToTop from "../../components/ScrollToTop";
 import LoginPromptModal from "../../components/LoginPromptModal";
 
 const Offers = () => {
@@ -28,7 +29,7 @@ const Offers = () => {
       try {
         setLoading(true);
         const response = await fetch(
-          "http://localhost:8080/api/package-offers"
+          "http://localhost:8080/api/package-offers",
         );
         const data = await response.json();
 
@@ -55,10 +56,10 @@ const Offers = () => {
     Hajj: offers.filter((offer) => offer.category === "Hajj"),
     "Umrah & Hajj": offers.filter((offer) => offer.category === "Umrah & Hajj"),
     "Adventure Tour": offers.filter(
-      (offer) => offer.category === "Adventure Tour"
+      (offer) => offer.category === "Adventure Tour",
     ),
     "Membership & Student Discounts": offers.filter(
-      (offer) => offer.category === "Membership & Student Discounts"
+      (offer) => offer.category === "Membership & Student Discounts",
     ),
   };
 
@@ -121,7 +122,7 @@ const Offers = () => {
         {offer.badge && (
           <div
             className={`absolute top-4 right-4 bg-gradient-to-r ${getBadgeColors(
-              offer.badgeColor
+              offer.badgeColor,
             )} text-white px-4 py-1 rounded-full text-sm font-bold shadow-lg`}
           >
             {offer.badge}
@@ -216,7 +217,7 @@ const Offers = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {offersByCategory["World Tour"].map((offer) =>
-                      renderOfferCard(offer)
+                      renderOfferCard(offer),
                     )}
                   </div>
                 </section>
@@ -238,7 +239,7 @@ const Offers = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {offersByCategory["Umrah"].map((offer) =>
-                      renderOfferCard(offer)
+                      renderOfferCard(offer),
                     )}
                   </div>
                 </section>
@@ -259,7 +260,7 @@ const Offers = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {offersByCategory["Hajj"].map((offer) =>
-                      renderOfferCard(offer)
+                      renderOfferCard(offer),
                     )}
                   </div>
                 </section>
@@ -280,7 +281,7 @@ const Offers = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {offersByCategory["Umrah & Hajj"].map((offer) =>
-                      renderOfferCard(offer)
+                      renderOfferCard(offer),
                     )}
                   </div>
                 </section>
@@ -302,7 +303,7 @@ const Offers = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {offersByCategory["Adventure Tour"].map((offer) =>
-                      renderOfferCard(offer)
+                      renderOfferCard(offer),
                     )}
                   </div>
                 </section>
@@ -324,7 +325,7 @@ const Offers = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
                     {offersByCategory["Membership & Student Discounts"].map(
-                      (offer) => renderOfferCard(offer)
+                      (offer) => renderOfferCard(offer),
                     )}
                   </div>
                 </section>
@@ -464,6 +465,7 @@ const Offers = () => {
       />
 
       <Footer />
+      <ScrollToTop />
     </>
   );
 };

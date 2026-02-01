@@ -64,6 +64,22 @@ const AdminDashboard = () => {
         });
       }
 
+      // Double-check flight count by loading and filtering flights
+      try {
+        const flightsResponse = await axios.get("/api/admin/flights", {
+          withCredentials: true,
+        });
+        const flightsData =
+          flightsResponse.data.data?.flights ||
+          flightsResponse.data.flights ||
+          flightsResponse.data.data ||
+          [];
+        const activeFlights = flightsData.filter((f) => f.status === "active");
+        setStats((prev) => ({ ...prev, totalFlights: activeFlights.length }));
+      } catch (flightError) {
+        console.error("Error loading flights for accurate count:", flightError);
+      }
+
       // Load all bookings for accurate calculations
       const allBookingsResponse = await axios.get("/api/admin/bookings", {
         withCredentials: true,
@@ -86,7 +102,7 @@ const AdminDashboard = () => {
       }).length;
 
       const pendingApprovals = allBookings.filter(
-        (b) => b.status === "pending"
+        (b) => b.status === "pending",
       ).length;
 
       setQuickStats({
@@ -169,12 +185,17 @@ const AdminDashboard = () => {
       setStats((prev) => ({ ...prev, totalBookings: bookings.length }));
       setRecentBookings(bookings.slice(0, 5));
 
-      // Load flights
+      // Load flights and count only active ones
       const flightsResponse = await axios.get("/api/admin/flights", {
         withCredentials: true,
       });
-      const flights = flightsResponse.data.data || [];
-      setStats((prev) => ({ ...prev, totalFlights: flights.length }));
+      const flightsData =
+        flightsResponse.data.data?.flights ||
+        flightsResponse.data.flights ||
+        flightsResponse.data.data ||
+        [];
+      const activeFlights = flightsData.filter((f) => f.status === "active");
+      setStats((prev) => ({ ...prev, totalFlights: activeFlights.length }));
     } catch (error) {
       console.error("Error loading individual stats:", error);
     }
@@ -199,7 +220,7 @@ const AdminDashboard = () => {
       await axios.put(
         `/api/admin/bookings/${bookingId}`,
         { status: newStatus },
-        { withCredentials: true }
+        { withCredentials: true },
       );
       // Reload dashboard data after status update to refresh revenue
       await loadDashboardData();
@@ -346,8 +367,8 @@ const AdminDashboard = () => {
                       activity.type === "user"
                         ? "bg-blue-500"
                         : activity.type === "booking"
-                        ? "bg-green-500"
-                        : "bg-purple-500"
+                          ? "bg-green-500"
+                          : "bg-purple-500"
                     }`}
                   >
                     <i
@@ -355,8 +376,8 @@ const AdminDashboard = () => {
                         activity.type === "user"
                           ? "fa-user-plus"
                           : activity.type === "booking"
-                          ? "fa-ticket-alt"
-                          : "fa-plane"
+                            ? "fa-ticket-alt"
+                            : "fa-plane"
                       } text-lg`}
                     ></i>
                   </div>
@@ -489,8 +510,8 @@ const AdminDashboard = () => {
                               booking.status === "confirmed"
                                 ? "bg-green-100 text-green-800"
                                 : booking.status === "pending"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : "bg-red-100 text-red-800"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-red-100 text-red-800"
                             }`}
                           >
                             {booking.status || "unknown"}
@@ -517,7 +538,7 @@ const AdminDashboard = () => {
                                   onClick={() =>
                                     updateBookingStatus(
                                       booking._id,
-                                      "confirmed"
+                                      "confirmed",
                                     )
                                   }
                                   title="Confirm Booking"
@@ -529,7 +550,7 @@ const AdminDashboard = () => {
                                   onClick={() =>
                                     updateBookingStatus(
                                       booking._id,
-                                      "cancelled"
+                                      "cancelled",
                                     )
                                   }
                                   title="Cancel Booking"
@@ -668,8 +689,8 @@ const AdminDashboard = () => {
                   selectedBooking.status === "confirmed"
                     ? "bg-green-100 border-2 border-green-300"
                     : selectedBooking.status === "pending"
-                    ? "bg-yellow-100 border-2 border-yellow-300"
-                    : "bg-red-100 border-2 border-red-300"
+                      ? "bg-yellow-100 border-2 border-yellow-300"
+                      : "bg-red-100 border-2 border-red-300"
                 }`}
               >
                 <span
@@ -677,8 +698,8 @@ const AdminDashboard = () => {
                     selectedBooking.status === "confirmed"
                       ? "text-green-800"
                       : selectedBooking.status === "pending"
-                      ? "text-yellow-800"
-                      : "text-red-800"
+                        ? "text-yellow-800"
+                        : "text-red-800"
                   }`}
                 >
                   <i
@@ -686,8 +707,8 @@ const AdminDashboard = () => {
                       selectedBooking.status === "confirmed"
                         ? "fa-check-circle"
                         : selectedBooking.status === "pending"
-                        ? "fa-clock"
-                        : "fa-times-circle"
+                          ? "fa-clock"
+                          : "fa-times-circle"
                     } mr-2`}
                   ></i>
                   {selectedBooking.status}
@@ -824,7 +845,7 @@ const AdminDashboard = () => {
                               )}
                             </div>
                           </div>
-                        )
+                        ),
                       )}
                     </div>
                   </div>
@@ -913,7 +934,7 @@ const AdminDashboard = () => {
                       <p className="text-gray-900">
                         {selectedBooking.flightId.departureTime
                           ? new Date(
-                              selectedBooking.flightId.departureTime
+                              selectedBooking.flightId.departureTime,
                             ).toLocaleString()
                           : "N/A"}
                       </p>
@@ -925,7 +946,7 @@ const AdminDashboard = () => {
                       <p className="text-gray-900">
                         {selectedBooking.flightId.arrivalTime
                           ? new Date(
-                              selectedBooking.flightId.arrivalTime
+                              selectedBooking.flightId.arrivalTime,
                             ).toLocaleString()
                           : "N/A"}
                       </p>

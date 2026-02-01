@@ -13,4 +13,7 @@ router.put("/", requireAdmin, settingsController.updateSettings);
 // Get maintenance status (public)
 router.get("/maintenance", settingsController.getMaintenanceStatus);
 
+// Get feedback settings (public)
+router.get("/feedback", settingsController.getFeedbackSettings);
+
 export default router;

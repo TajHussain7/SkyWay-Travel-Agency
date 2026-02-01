@@ -21,11 +21,18 @@ const ManageSeating = () => {
     availableSeats: 0,
     occupancyRate: 0,
   });
+  const [notificationSettings, setNotificationSettings] = useState(null);
+  const [showNotificationPanel, setShowNotificationPanel] = useState(false);
+  const [selectedBookings, setSelectedBookings] = useState([]);
+  const [notificationType, setNotificationType] = useState("reminder");
+  const [sendingNotifications, setSendingNotifications] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
     checkAdminAuth();
     loadFlights();
+    loadNotificationSettings();
   }, []);
 
   useEffect(() => {
@@ -89,20 +96,168 @@ const ManageSeating = () => {
     }
   };
 
+  const loadNotificationSettings = async () => {
+    try {
+      const response = await axios.get("/api/admin/notifications/settings", {
+        withCredentials: true,
+      });
+      setNotificationSettings(response.data.data);
+    } catch (error) {
+      console.error("Error loading notification settings:", error);
+    }
+  };
+
+  const sendFlightNotifications = async () => {
+    if (!selectedFlight || !notificationSettings) return;
+
+    if (!notificationSettings.emailNotifications) {
+      showNotification(
+        "error",
+        "Email notifications are disabled in settings. Please enable them first.",
+      );
+      return;
+    }
+
+    // Validate cancellation reason if cancellation type
+    if (notificationType === "cancellation" && !cancellationReason.trim()) {
+      showNotification(
+        "error",
+        "Please provide a cancellation reason before sending.",
+      );
+      return;
+    }
+
+    setConfirmAction({
+      title: "Send Flight Notifications",
+      message: `Send ${notificationType} notifications to all passengers on flight ${selectedFlight.number}? This will email ${bookings.length} passenger(s).${notificationType === "cancellation" ? " This will also cancel all bookings and free up seats." : notificationType === "confirmation" ? " This will also mark all bookings as confirmed." : ""}`,
+      type: notificationType === "cancellation" ? "danger" : "info",
+      callback: async () => {
+        try {
+          setSendingNotifications(true);
+          const response = await axios.post(
+            "/api/admin/notifications/send-flight",
+            {
+              flightId: selectedFlight._id,
+              notificationType,
+              cancellationReason:
+                notificationType === "cancellation" ? cancellationReason : null,
+            },
+            { withCredentials: true },
+          );
+          showNotification(
+            "success",
+            response.data.message || "Notifications sent successfully",
+          );
+          setShowNotificationPanel(false);
+          setCancellationReason("");
+          // Reload bookings to reflect status changes (confirmation or cancellation)
+          if (
+            notificationType === "cancellation" ||
+            notificationType === "confirmation"
+          ) {
+            loadFlightBookings(selectedFlight._id);
+          }
+        } catch (error) {
+          console.error("Error sending notifications:", error);
+          showNotification(
+            "error",
+            error.response?.data?.message || "Failed to send notifications",
+          );
+        } finally {
+          setSendingNotifications(false);
+        }
+      },
+    });
+    setShowConfirmModal(true);
+  };
+
+  const sendSelectedBookingNotifications = async () => {
+    if (selectedBookings.length === 0) {
+      showNotification("error", "Please select at least one booking");
+      return;
+    }
+
+    if (!notificationSettings?.emailNotifications) {
+      showNotification("error", "Email notifications are disabled in settings");
+      return;
+    }
+
+    // Validate cancellation reason if cancellation type
+    if (notificationType === "cancellation" && !cancellationReason.trim()) {
+      showNotification(
+        "error",
+        "Please provide a cancellation reason before sending.",
+      );
+      return;
+    }
+
+    setConfirmAction({
+      title: "Send Selected Notifications",
+      message: `Send ${notificationType} notifications to ${selectedBookings.length} selected passenger(s)?${notificationType === "cancellation" ? " This will also cancel these bookings and free up their seats." : notificationType === "confirmation" ? " This will also mark these bookings as confirmed." : ""}`,
+      type: notificationType === "cancellation" ? "danger" : "info",
+      callback: async () => {
+        try {
+          setSendingNotifications(true);
+          const response = await axios.post(
+            "/api/admin/notifications/send-bulk",
+            {
+              bookingIds: selectedBookings,
+              notificationType,
+              cancellationReason:
+                notificationType === "cancellation" ? cancellationReason : null,
+            },
+            { withCredentials: true },
+          );
+          showNotification(
+            "success",
+            response.data.message || "Notifications sent successfully",
+          );
+          setSelectedBookings([]);
+          setShowNotificationPanel(false);
+          setCancellationReason("");
+          // Reload bookings to reflect status changes (confirmation or cancellation)
+          if (
+            notificationType === "cancellation" ||
+            notificationType === "confirmation"
+          ) {
+            loadFlightBookings(selectedFlight._id);
+          }
+        } catch (error) {
+          console.error("Error sending notifications:", error);
+          showNotification(
+            "error",
+            error.response?.data?.message || "Failed to send notifications",
+          );
+        } finally {
+          setSendingNotifications(false);
+        }
+      },
+    });
+    setShowConfirmModal(true);
+  };
+
+  const toggleBookingSelection = (bookingId) => {
+    setSelectedBookings((prev) =>
+      prev.includes(bookingId)
+        ? prev.filter((id) => id !== bookingId)
+        : [...prev, bookingId],
+    );
+  };
+
   const loadFlightBookings = async (flightId) => {
     try {
       const response = await axios.get(
         `/api/admin/bookings?flightId=${flightId}`,
         {
           withCredentials: true,
-        }
+        },
       );
       const bookingsData = response.data.data || [];
       // Filter for this flight and only confirmed/pending bookings (not cancelled)
       const relevantBookings = bookingsData.filter(
         (b) =>
           b.flightId?._id === flightId &&
-          (b.status === "confirmed" || b.status === "pending")
+          (b.status === "confirmed" || b.status === "pending"),
       );
       setBookings(relevantBookings);
       calculateStats();
@@ -214,7 +369,7 @@ const ManageSeating = () => {
       flight.number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       flight.origin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       flight.destination?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      flight.airline?.toLowerCase().includes(searchTerm.toLowerCase())
+      flight.airline?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   if (loading) {
@@ -252,8 +407,8 @@ const ManageSeating = () => {
               notification.type === "success"
                 ? "bg-green-100 text-green-800"
                 : notification.type === "error"
-                ? "bg-red-100 text-red-800"
-                : "bg-blue-100 text-blue-800"
+                  ? "bg-red-100 text-red-800"
+                  : "bg-blue-100 text-blue-800"
             }`}
           >
             {notification.message}
@@ -313,8 +468,8 @@ const ManageSeating = () => {
                             flight.status === "scheduled"
                               ? "bg-blue-100 text-blue-800"
                               : flight.status === "active"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-gray-100 text-gray-800"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-100 text-gray-800"
                           }`}
                         >
                           {flight.status}
@@ -364,14 +519,274 @@ const ManageSeating = () => {
                     <i className="fas fa-chair mr-2 text-primary"></i>
                     {selectedFlight.number} - Seat Map
                   </h2>
-                  <button
-                    onClick={() => loadFlightBookings(selectedFlight._id)}
-                    className="flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors duration-200"
-                  >
-                    <i className="fas fa-sync-alt"></i>
-                    Refresh Seats
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() =>
+                        setShowNotificationPanel(!showNotificationPanel)
+                      }
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors duration-200 ${
+                        showNotificationPanel
+                          ? "bg-gray-200 text-gray-700"
+                          : "bg-purple-600 hover:bg-purple-700 text-white"
+                      }`}
+                      title="Send email notifications to passengers"
+                    >
+                      <i
+                        className={`fas ${showNotificationPanel ? "fa-times" : "fa-bell"}`}
+                      ></i>
+                      {showNotificationPanel ? "Close" : "Notify Passengers"}
+                    </button>
+                    <button
+                      onClick={() => loadFlightBookings(selectedFlight._id)}
+                      className="flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors duration-200"
+                    >
+                      <i className="fas fa-sync-alt"></i>
+                      Refresh Seats
+                    </button>
+                  </div>
                 </div>
+
+                {/* Notification Panel */}
+                {showNotificationPanel && (
+                  <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-lg p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <i className="fas fa-envelope text-2xl text-purple-600"></i>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">
+                          Email Notifications
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          Send professional email notifications to passengers
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Notification Settings Status */}
+                    {notificationSettings && (
+                      <div className="mb-4 p-3 bg-white rounded-lg border border-gray-200">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-700 font-medium">
+                            <i className="fas fa-cog mr-2 text-gray-500"></i>
+                            Email Notifications:
+                          </span>
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                              notificationSettings.emailNotifications
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {notificationSettings.emailNotifications
+                              ? "Enabled"
+                              : "Disabled"}
+                          </span>
+                        </div>
+                        {!notificationSettings.emailNotifications && (
+                          <p className="mt-2 text-xs text-red-600">
+                            ⚠️ Email notifications are disabled. Enable them in
+                            Settings → Notification Settings.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Notification Type Selection */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <i className="fas fa-tag mr-2"></i>
+                        Notification Type
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          onClick={() => setNotificationType("confirmation")}
+                          className={`p-3 rounded-lg border-2 text-left transition-all ${
+                            notificationType === "confirmation"
+                              ? "border-green-500 bg-green-50"
+                              : "border-gray-200 hover:border-green-300"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <i className="fas fa-check-circle text-green-600"></i>
+                            <span className="font-semibold text-gray-900">
+                              Confirmation
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-600">
+                            Booking confirmed
+                          </p>
+                        </button>
+
+                        <button
+                          onClick={() => setNotificationType("reminder")}
+                          className={`p-3 rounded-lg border-2 text-left transition-all ${
+                            notificationType === "reminder"
+                              ? "border-yellow-500 bg-yellow-50"
+                              : "border-gray-200 hover:border-yellow-300"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <i className="fas fa-clock text-yellow-600"></i>
+                            <span className="font-semibold text-gray-900">
+                              Reminder
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-600">
+                            Flight reminder
+                          </p>
+                        </button>
+
+                        <button
+                          onClick={() => setNotificationType("seatChange")}
+                          className={`p-3 rounded-lg border-2 text-left transition-all ${
+                            notificationType === "seatChange"
+                              ? "border-blue-500 bg-blue-50"
+                              : "border-gray-200 hover:border-blue-300"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <i className="fas fa-exchange-alt text-blue-600"></i>
+                            <span className="font-semibold text-gray-900">
+                              Seat Change
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-600">Seat updated</p>
+                        </button>
+
+                        <button
+                          onClick={() => setNotificationType("cancellation")}
+                          className={`p-3 rounded-lg border-2 text-left transition-all ${
+                            notificationType === "cancellation"
+                              ? "border-red-500 bg-red-50"
+                              : "border-gray-200 hover:border-red-300"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <i className="fas fa-times-circle text-red-600"></i>
+                            <span className="font-semibold text-gray-900">
+                              Cancellation
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-600">
+                            Booking cancelled
+                          </p>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Cancellation Reason Input - Only show when cancellation is selected */}
+                    {notificationType === "cancellation" && (
+                      <div className="mb-4">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          <i className="fas fa-exclamation-circle mr-2 text-red-600"></i>
+                          Cancellation Reason{" "}
+                          <span className="text-red-600">*</span>
+                        </label>
+                        <textarea
+                          value={cancellationReason}
+                          onChange={(e) =>
+                            setCancellationReason(e.target.value)
+                          }
+                          placeholder="Enter the reason for cancellation (required)..."
+                          rows="3"
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+                        />
+                        <p className="text-xs text-gray-600 mt-1">
+                          This reason will be included in the cancellation email
+                          sent to passengers.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Booking Selection for Individual Notifications */}
+                    {bookings.length > 0 && (
+                      <div className="mb-4">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          <i className="fas fa-users mr-2"></i>
+                          Select Passengers (Optional)
+                        </label>
+                        <div className="max-h-40 overflow-y-auto bg-white rounded-lg border border-gray-200 p-2">
+                          {bookings.map((booking) => (
+                            <label
+                              key={booking._id}
+                              className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedBookings.includes(booking._id)}
+                                onChange={() =>
+                                  toggleBookingSelection(booking._id)
+                                }
+                                className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                              />
+                              <div className="flex-1 text-sm">
+                                <span className="font-medium text-gray-900">
+                                  {booking.userId?.name || "Unknown"}
+                                </span>
+                                <span className="text-gray-500 ml-2">
+                                  (
+                                  {booking.seatNumbers?.join(", ") ||
+                                    "No seats"}
+                                  )
+                                </span>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Leave empty to notify all passengers
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3">
+                      <button
+                        onClick={sendFlightNotifications}
+                        disabled={
+                          sendingNotifications ||
+                          bookings.length === 0 ||
+                          !notificationSettings?.emailNotifications
+                        }
+                        className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-4 py-3 rounded-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {sendingNotifications ? (
+                          <>
+                            <i className="fas fa-spinner fa-spin mr-2"></i>
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <i className="fas fa-paper-plane mr-2"></i>
+                            Send to All ({bookings.length})
+                          </>
+                        )}
+                      </button>
+
+                      {selectedBookings.length > 0 && (
+                        <button
+                          onClick={sendSelectedBookingNotifications}
+                          disabled={
+                            sendingNotifications ||
+                            !notificationSettings?.emailNotifications
+                          }
+                          className="flex-1 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white px-4 py-3 rounded-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {sendingNotifications ? (
+                            <>
+                              <i className="fas fa-spinner fa-spin mr-2"></i>
+                              Sending...
+                            </>
+                          ) : (
+                            <>
+                              <i className="fas fa-check mr-2"></i>
+                              Send to Selected ({selectedBookings.length})
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Stats Cards */}
                 <div className="grid grid-cols-4 gap-4 mb-6">

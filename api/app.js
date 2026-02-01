@@ -69,6 +69,7 @@ import adminLocationsRoutes from "./routes/adminLocations.js";
 import adminArchiveRoutes from "./routes/adminArchive.js";
 import contactRoutes from "./routes/contact.js";
 import settingsRoutes from "./routes/settings.js";
+import notificationRoutes from "./routes/notifications.js";
 import maintenanceMiddleware from "./middleware/maintenance.js";
 import errorHandler, { notFoundHandler } from "./middleware/error.js";
 
@@ -84,6 +85,7 @@ app.use("/api/admin/umrah", adminUmrahRoutes);
 app.use("/api/admin/offers", adminOffersRoutes);
 app.use("/api/admin/locations", adminLocationsRoutes);
 app.use("/api/admin/archive", adminArchiveRoutes);
+app.use("/api/admin/notifications", notificationRoutes);
 app.use("/api/booking", bookingRoutes);
 app.use("/api/locations", locationsRoutes);
 app.use("/api/package-offers", packageOffersRoutes);

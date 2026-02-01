@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
+import ScrollToTop from "../../components/ScrollToTop";
 import axios from "axios";
 
 const ContactUs = () => {
@@ -46,7 +47,7 @@ const ContactUs = () => {
             {
               zoom: 15,
               center: { lat: 31.5204, lng: 74.3587 }, // Lahore coordinates
-            }
+            },
           );
 
           new window.google.maps.Marker({
@@ -92,7 +93,7 @@ const ContactUs = () => {
         setSuccessMessage(
           isAccountRecovery
             ? "Your account recovery request has been submitted. Our support team will contact you within 24 hours."
-            : "Thank you! Your message has been sent successfully."
+            : "Thank you! Your message has been sent successfully.",
         );
         setFormData({
           name: "",
@@ -430,6 +431,7 @@ const ContactUs = () => {
       </section>
 
       <Footer />
+      <ScrollToTop />
     </>
   );
 };

@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
+import ScrollToTop from "../../components/ScrollToTop";
 import { Dropdown } from "primereact/dropdown";
 import { Calendar } from "primereact/calendar";
 import "primereact/resources/themes/lara-light-blue/theme.css";
@@ -492,6 +493,7 @@ const Home = () => {
       </section>
 
       <Footer />
+      <ScrollToTop />
     </>
   );
 };

@@ -1,10 +1,12 @@
 import Flight from "../models/Flight.js";
 import Booking from "../models/Booking.js";
 import PackageOffer from "../models/PackageOffer.js";
+import Settings from "../models/Settings.js";
 import {
   archivePastBookings,
   archivePastFlights,
 } from "../utils/archiveBookings.js";
+import { sendBookingNotification } from "../utils/emailService.js";
 
 const getFlights = async (req, res) => {
   try {
@@ -239,7 +241,12 @@ const updateBooking = async (req, res) => {
 
 const cancelBooking = async (req, res) => {
   try {
-    const booking = await Booking.findById(req.params.id);
+    const booking = await Booking.findById(req.params.id)
+      .populate("userId", "name email")
+      .populate(
+        "flightId",
+        "number origin destination departureTime arrivalTime airline price",
+      );
 
     if (!booking) {
       return res.status(404).json({
@@ -249,7 +256,10 @@ const cancelBooking = async (req, res) => {
     }
 
     // Check if user owns this booking (unless admin)
-    if (booking.userId !== req.user.id && req.user.role !== "admin") {
+    if (
+      booking.userId._id.toString() !== req.user.id &&
+      req.user.role !== "admin"
+    ) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to cancel this booking",
@@ -257,7 +267,7 @@ const cancelBooking = async (req, res) => {
     }
 
     // Update flight available seats and booked count
-    const flight = await Flight.findById(booking.flightId);
+    const flight = await Flight.findById(booking.flightId._id);
     if (flight) {
       flight.availableSeats += booking.seatCount;
       // Update booked seats count
@@ -275,6 +285,42 @@ const cancelBooking = async (req, res) => {
     booking.archivedReason = "cancelled";
     // Save without validation to avoid issues with old bookings
     await booking.save({ validateBeforeSave: false });
+
+    // Auto-send cancellation email
+    try {
+      const settings = await Settings.findOne();
+      if (
+        settings?.notification?.emailNotifications &&
+        settings?.notification?.cancellationNotice
+      ) {
+        const bookingDetails = {
+          ticketNumber: booking.ticketNumber,
+          flightNumber: booking.flightId.number,
+          origin: booking.flightId.origin,
+          destination: booking.flightId.destination,
+          departureTime: booking.flightId.departureTime,
+          arrivalTime: booking.flightId.arrivalTime,
+          airline: booking.flightId.airline,
+          seatCount: booking.seatCount,
+          seatNumbers: booking.seatNumbers,
+          totalPrice: booking.totalPrice,
+          passengers: booking.passengerDetails,
+        };
+        const cancellationReason =
+          req.body.cancellationReason || "Booking cancelled as requested";
+        await sendBookingNotification(
+          booking.userId.email,
+          booking.userId.name,
+          bookingDetails,
+          "cancellation",
+          cancellationReason,
+        );
+        console.log(`✅ Cancellation email sent to ${booking.userId.email}`);
+      }
+    } catch (emailError) {
+      console.error("Error sending cancellation email:", emailError);
+      // Don't fail the request if email fails
+    }
 
     res.status(200).json({
       success: true,

@@ -7,6 +7,7 @@ import Booking from "../models/Booking.js";
 import User from "../models/User.js";
 import Feedback from "../models/Feedback.js";
 import ContactQuery from "../models/ContactQuery.js";
+import { sendQueryResponseEmail } from "../utils/emailService.js";
 
 const router = express.Router();
 
@@ -612,6 +613,57 @@ router.put("/contact-queries/:id", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to update contact query",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/admin/archive/contact-queries/:id/respond
+ * Send email response to contact query
+ */
+router.post("/contact-queries/:id/respond", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { response } = req.body;
+
+    if (!response || response.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Response message is required",
+      });
+    }
+
+    // Get the contact query
+    const query = await ContactQuery.findById(id);
+
+    if (!query) {
+      return res.status(404).json({
+        success: false,
+        message: "Contact query not found",
+      });
+    }
+
+    // Send email response
+    await sendQueryResponseEmail(query, response);
+
+    // Update query status to resolved
+    query.status = "resolved";
+    query.resolvedAt = new Date();
+    query.resolvedBy = req.user.id;
+    query.adminNotes = response;
+    await query.save();
+
+    res.json({
+      success: true,
+      message: "Response sent successfully",
+      data: query,
+    });
+  } catch (error) {
+    console.error("Error sending response:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to send response",
       error: error.message,
     });
   }

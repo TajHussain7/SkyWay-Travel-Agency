@@ -19,8 +19,28 @@ const feedbackSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["account_deletion", "general", "suggestion", "complaint"],
-      default: "account_deletion",
+      enum: [
+        "account_deletion",
+        "general",
+        "suggestion",
+        "complaint",
+        "mandatory",
+        "evaluation",
+      ],
+      default: "general",
+    },
+    category: {
+      type: String,
+      enum: [
+        "general",
+        "booking",
+        "customer_service",
+        "website",
+        "flights",
+        "pricing",
+        "other",
+      ],
+      default: "general",
     },
     rating: {
       type: Number,
@@ -42,7 +62,7 @@ const feedbackSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 const Feedback = mongoose.model("Feedback", feedbackSchema);

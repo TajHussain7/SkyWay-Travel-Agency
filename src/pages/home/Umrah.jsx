@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
+import ScrollToTop from "../../components/ScrollToTop";
 import axios from "axios";
 import {
   Chart as ChartJS,
@@ -22,7 +23,7 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
 );
 
 const Umrah = () => {
@@ -57,7 +58,7 @@ const Umrah = () => {
     (pkg) =>
       pkg.name.toLowerCase().includes(filter.toLowerCase()) ||
       pkg.city.toLowerCase().includes(filter.toLowerCase()) ||
-      pkg.plane.toLowerCase().includes(filter.toLowerCase())
+      pkg.plane.toLowerCase().includes(filter.toLowerCase()),
   );
 
   const openModal = (pkg) => {
@@ -96,7 +97,7 @@ const Umrah = () => {
   const stats = {
     totalPackages: packages.length,
     avgPrice: Math.round(
-      packages.reduce((sum, p) => sum + p.price, 0) / packages.length
+      packages.reduce((sum, p) => sum + p.price, 0) / packages.length,
     ),
     totalAvailability: packages.reduce((sum, p) => sum + p.availability, 0),
     avgRating: (
@@ -128,7 +129,7 @@ const Umrah = () => {
   // Chart data
   const priceChartData = {
     labels: packages.map((p) =>
-      p.name.length > 15 ? p.name.substring(0, 15) + "..." : p.name
+      p.name.length > 15 ? p.name.substring(0, 15) + "..." : p.name,
     ),
     datasets: [
       {
@@ -921,6 +922,7 @@ const Umrah = () => {
       )}
 
       <Footer />
+      <ScrollToTop />
     </>
   );
 };

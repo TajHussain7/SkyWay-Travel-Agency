@@ -1,7 +1,9 @@
 import User from "../models/User.js";
 import Flight from "../models/Flight.js";
 import Booking from "../models/Booking.js";
+import Settings from "../models/Settings.js";
 import { archivePastFlights } from "../utils/archiveBookings.js";
+import { sendBookingNotification } from "../utils/emailService.js";
 
 const getDashboard = async (req, res) => {
   try {
@@ -10,7 +12,7 @@ const getDashboard = async (req, res) => {
     const bookings = await Booking.find({});
 
     const totalUsers = users.filter((u) => u.role === "user").length;
-    const totalFlights = flights.length;
+    const totalFlights = flights.filter((f) => f.status === "active").length;
     const totalBookings = bookings.length;
 
     let totalRevenue = 0;
@@ -314,7 +316,12 @@ const getBookings = async (req, res) => {
 const updateBooking = async (req, res) => {
   try {
     const { status } = req.body;
-    const booking = await Booking.findById(req.params.id);
+    const booking = await Booking.findById(req.params.id)
+      .populate("userId", "name email")
+      .populate(
+        "flightId",
+        "number origin destination departureTime arrivalTime airline price",
+      );
 
     if (!booking) {
       return res.status(404).json({
@@ -323,8 +330,45 @@ const updateBooking = async (req, res) => {
       });
     }
 
+    const oldStatus = booking.status;
     booking.status = status;
     await booking.save();
+
+    // Auto-send email if status changed to confirmed
+    if (status === "confirmed" && oldStatus !== "confirmed") {
+      try {
+        const settings = await Settings.findOne();
+        if (
+          settings?.notification?.emailNotifications &&
+          settings?.notification?.bookingConfirmation
+        ) {
+          const bookingDetails = {
+            ticketNumber: booking.ticketNumber,
+            flightNumber: booking.flightId.number,
+            origin: booking.flightId.origin,
+            destination: booking.flightId.destination,
+            departureTime: booking.flightId.departureTime,
+            arrivalTime: booking.flightId.arrivalTime,
+            airline: booking.flightId.airline,
+            seatCount: booking.seatCount,
+            seatNumbers: booking.seatNumbers,
+            totalPrice: booking.totalPrice,
+            passengers: booking.passengerDetails,
+          };
+          await sendBookingNotification(
+            booking.userId.email,
+            booking.userId.name,
+            bookingDetails,
+            "confirmation",
+            null,
+          );
+          console.log(`✅ Confirmation email sent to ${booking.userId.email}`);
+        }
+      } catch (emailError) {
+        console.error("Error sending confirmation email:", emailError);
+        // Don't fail the request if email fails
+      }
+    }
 
     res.status(200).json({
       success: true,
@@ -408,6 +452,48 @@ const getBooking = async (req, res) => {
   }
 };
 
+const exportUsers = async (req, res) => {
+  try {
+    // Fetch all users except admins
+    const users = await User.find({})
+      .select("-password")
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+
+    // For each user, calculate their booking statistics
+    const usersWithStats = await Promise.all(
+      users.map(async (user) => {
+        // Get all bookings for this user
+        const bookings = await Booking.find({ userId: user._id }).lean().exec();
+
+        // Calculate total bookings and expenses
+        const bookingCount = bookings.length;
+        const totalExpenses = bookings.reduce((sum, booking) => {
+          return sum + (booking.totalPrice || 0);
+        }, 0);
+
+        return {
+          ...user,
+          bookingCount,
+          totalExpenses,
+        };
+      }),
+    );
+
+    res.status(200).json({
+      success: true,
+      data: usersWithStats,
+    });
+  } catch (error) {
+    console.error("Export users error:", error);
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 export {
   getDashboard,
   getUsers as getAllUsers,
@@ -421,4 +507,5 @@ export {
   getBooking,
   updateBooking,
   confirmBooking,
+  exportUsers,
 };

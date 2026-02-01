@@ -13,6 +13,7 @@ import {
   addFlight,
   updateFlight,
   deleteFlight,
+  exportUsers,
 } from "../controllers/adminController.js";
 import { protect, admin } from "../middleware/auth.js";
 
@@ -22,6 +23,7 @@ router.use(admin);
 
 router.get("/dashboard", getDashboard);
 router.get("/users", getAllUsers);
+router.get("/users/export", exportUsers);
 router.put("/users/:id", updateUser);
 router.delete("/users/:id", deleteUser);
 router.get("/bookings/:id", getBooking);

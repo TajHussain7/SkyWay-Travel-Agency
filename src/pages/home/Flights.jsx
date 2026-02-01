@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
+import ScrollToTop from "../../components/ScrollToTop";
 import BookingSuccessAnimation from "../../components/BookingSuccessAnimation";
 import SuccessToast from "../../components/SuccessToast";
 import SeatSelectionModal from "../../components/SeatSelectionModal";
@@ -90,7 +91,7 @@ const Flights = () => {
           className="w-8 h-8 object-contain"
           onError={(e) => {
             e.target.src = `https://via.placeholder.com/32x32/667eea/ffffff?text=${option.label.charAt(
-              0
+              0,
             )}`;
           }}
         />
@@ -110,7 +111,7 @@ const Flights = () => {
           className="w-6 h-6 object-contain"
           onError={(e) => {
             e.target.src = `https://via.placeholder.com/24x24/667eea/ffffff?text=${option.label.charAt(
-              0
+              0,
             )}`;
           }}
         />
@@ -138,7 +139,7 @@ const Flights = () => {
       if (response.data.success) {
         // Sort flights by departure date (newest first)
         const sortedFlights = response.data.data.sort(
-          (a, b) => new Date(b.departureTime) - new Date(a.departureTime)
+          (a, b) => new Date(b.departureTime) - new Date(a.departureTime),
         );
         setFlights(sortedFlights);
 
@@ -231,7 +232,7 @@ const Flights = () => {
           name: "",
           age: "",
           gender: "male",
-        }
+        },
       );
     }
     setBookingFormData({
@@ -273,7 +274,7 @@ const Flights = () => {
           seatNumbers: bookingFormData.seatNumbers,
           passengers: bookingFormData.passengers,
         },
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       if (response.data.success) {
@@ -348,7 +349,7 @@ const Flights = () => {
       if (response.data.success) {
         // Sort search results by departure date (newest first)
         const sortedResults = response.data.data.sort(
-          (a, b) => new Date(b.departureTime) - new Date(a.departureTime)
+          (a, b) => new Date(b.departureTime) - new Date(a.departureTime),
         );
         setSearchResults(sortedResults);
         setShowResults(true);
@@ -794,7 +795,7 @@ const Flights = () => {
                         <p className="text-sm text-gray-600 font-medium">
                           {calculateDuration(
                             flight.departureTime,
-                            flight.arrivalTime
+                            flight.arrivalTime,
                           )}
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
@@ -828,10 +829,10 @@ const Flights = () => {
                             flight.status === "active"
                               ? "bg-green-100 text-green-700"
                               : flight.status === "delayed"
-                              ? "bg-yellow-100 text-yellow-700"
-                              : flight.status === "cancelled"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-blue-100 text-blue-700"
+                                ? "bg-yellow-100 text-yellow-700"
+                                : flight.status === "cancelled"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-blue-100 text-blue-700"
                           }`}
                         >
                           {flight.status}
@@ -870,8 +871,8 @@ const Flights = () => {
                         {flight.status === "cancelled"
                           ? "Cancelled"
                           : flight.availableSeats === 0
-                          ? "Sold Out"
-                          : "Book Now"}
+                            ? "Sold Out"
+                            : "Book Now"}
                       </button>
                     </div>
                   </div>
@@ -1035,7 +1036,7 @@ const Flights = () => {
                   <i className="fas fa-chair me-2"></i>
                   {bookingFormData.seatNumbers.length > 0
                     ? `Change Selected Seats (${bookingFormData.seatNumbers.join(
-                        ", "
+                        ", ",
                       )})`
                     : "Select Seats"}
                 </button>
@@ -1068,7 +1069,7 @@ const Flights = () => {
                               handlePassengerChange(
                                 index,
                                 "name",
-                                e.target.value
+                                e.target.value,
                               )
                             }
                             required
@@ -1087,7 +1088,7 @@ const Flights = () => {
                               handlePassengerChange(
                                 index,
                                 "age",
-                                e.target.value
+                                e.target.value,
                               )
                             }
                             required
@@ -1106,7 +1107,7 @@ const Flights = () => {
                                   handlePassengerChange(
                                     index,
                                     "gender",
-                                    e.target.value
+                                    e.target.value,
                                   )
                                 }
                                 className="mr-2"
@@ -1123,7 +1124,7 @@ const Flights = () => {
                                   handlePassengerChange(
                                     index,
                                     "gender",
-                                    e.target.value
+                                    e.target.value,
                                   )
                                 }
                                 className="mr-2"
@@ -1140,7 +1141,7 @@ const Flights = () => {
                                   handlePassengerChange(
                                     index,
                                     "gender",
-                                    e.target.value
+                                    e.target.value,
                                   )
                                 }
                                 className="mr-2"
@@ -1218,6 +1219,7 @@ const Flights = () => {
       />
 
       <Footer />
+      <ScrollToTop />
     </>
   );
 };

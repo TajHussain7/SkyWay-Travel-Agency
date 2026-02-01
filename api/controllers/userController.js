@@ -26,7 +26,7 @@ const getDashboard = async (req, res) => {
     // Get booking statistics (only non-archived)
     const totalBookings = userBookings.length;
     const confirmedBookings = userBookings.filter(
-      (b) => b.status === "confirmed"
+      (b) => b.status === "confirmed",
     ).length;
 
     res.status(200).json({
@@ -80,14 +80,14 @@ const archivePastBookings = async (userId) => {
             booking.status === "confirmed"
               ? "completed"
               : booking.status === "cancelled"
-              ? "cancelled"
-              : "expired";
+                ? "cancelled"
+                : "expired";
         }
       } else if (booking.bookingType === "package" && booking.packageOfferId) {
         // Archive if booking date is more than 90 days old
         const bookingDate = new Date(booking.createdAt);
         const daysDiff = Math.floor(
-          (now - bookingDate) / (1000 * 60 * 60 * 24)
+          (now - bookingDate) / (1000 * 60 * 60 * 24),
         );
 
         // Archive cancelled bookings immediately, others after 90 days
@@ -453,10 +453,32 @@ const deleteAccount = async (req, res) => {
 
 const submitFeedback = async (req, res) => {
   try {
-    const { email, name, rating, message, type } = req.body;
+    const { email, name, rating, message, type, category, feedbackType } =
+      req.body;
+
+    // Check if this is from an authenticated user
+    const userId = req.user?._id;
+    let userEmail = email;
+    let userName = name;
+
+    // If authenticated user, use their info
+    if (userId) {
+      const user = await User.findById(userId);
+      if (user) {
+        userEmail = user.email;
+        userName = user.name;
+
+        // Update user's feedback status if this is mandatory feedback
+        if (feedbackType === "mandatory") {
+          user.feedbackSubmitted = true;
+          user.lastFeedbackDate = new Date();
+          await user.save();
+        }
+      }
+    }
 
     // Validate required fields
-    if (!email || !message) {
+    if (!userEmail || !message) {
       return res.status(400).json({
         success: false,
         message: "Email and message are required",
@@ -465,12 +487,14 @@ const submitFeedback = async (req, res) => {
 
     // Create feedback entry
     const feedback = await Feedback.create({
-      userEmail: email,
-      userName: name || "",
+      userEmail,
+      userName: userName || "",
       rating: rating || 3,
       message,
-      type: type || "account_deletion",
+      type: type || feedbackType || "general",
+      category: category || "general",
       status: "new",
+      userId: userId || null,
     });
 
     res.status(201).json({

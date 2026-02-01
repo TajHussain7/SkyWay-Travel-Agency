@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminLayout from "../../components/AdminLayout";
 import axios from "axios";
+import * as XLSX from "xlsx";
 
 const ManageUsers = () => {
   const [users, setUsers] = useState([]);
@@ -74,7 +75,7 @@ const ManageUsers = () => {
       filtered = filtered.filter(
         (user) =>
           user.name?.toLowerCase().includes(searchTerm) ||
-          user.email?.toLowerCase().includes(searchTerm)
+          user.email?.toLowerCase().includes(searchTerm),
       );
     }
 
@@ -104,7 +105,7 @@ const ManageUsers = () => {
       await axios.put(
         `/api/admin/users/${selectedUser._id}`,
         { role: editRole },
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       // Reload users after update
@@ -113,6 +114,64 @@ const ManageUsers = () => {
     } catch (error) {
       console.error("Error updating user role:", error);
       alert(error.response?.data?.message || "Failed to update user role");
+    }
+  };
+
+  const handleExportUsers = async () => {
+    try {
+      // Fetch users with their booking statistics
+      const response = await axios.get("/api/admin/users/export", {
+        withCredentials: true,
+      });
+
+      const usersWithStats = response.data.data || [];
+
+      // Prepare data for Excel
+      const excelData = usersWithStats.map((user, index) => ({
+        "No.": index + 1,
+        Company: "SKYWAY TRAVEL AGENCY",
+        Name: user.name || "N/A",
+        Email: user.email || "N/A",
+        Role: user.role || "user",
+        "Date Joined": user.createdAt
+          ? new Date(user.createdAt).toLocaleDateString()
+          : "N/A",
+        "Number of Bookings": user.bookingCount || 0,
+        "Total Expenses ($)": user.totalExpenses
+          ? user.totalExpenses.toFixed(2)
+          : "0.00",
+      }));
+
+      // Create a new workbook
+      const wb = XLSX.utils.book_new();
+
+      // Convert data to worksheet
+      const ws = XLSX.utils.json_to_sheet(excelData);
+
+      // Set column widths
+      ws["!cols"] = [
+        { wch: 5 }, // No.
+        { wch: 25 }, // Company
+        { wch: 20 }, // Name
+        { wch: 30 }, // Email
+        { wch: 10 }, // Role
+        { wch: 15 }, // Date Joined
+        { wch: 18 }, // Number of Bookings
+        { wch: 18 }, // Total Expenses
+      ];
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, "Users");
+
+      // Generate filename with current date
+      const date = new Date().toISOString().split("T")[0];
+      const filename = `SKYWAY_Users_Report_${date}.xlsx`;
+
+      // Save the file
+      XLSX.writeFile(wb, filename);
+    } catch (error) {
+      console.error("Error exporting users:", error);
+      alert("Failed to export users. Please try again.");
     }
   };
 
@@ -148,7 +207,7 @@ const ManageUsers = () => {
             <div className="flex gap-3">
               <button
                 className="bg-white text-primary hover:bg-gray-100 font-semibold py-2 px-4 rounded-lg transition-all duration-300 flex items-center gap-2"
-                onClick={() => {}}
+                onClick={handleExportUsers}
               >
                 <i className="fas fa-download"></i> Export Users
               </button>

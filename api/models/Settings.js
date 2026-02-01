@@ -66,6 +66,21 @@ const settingsSchema = new mongoose.Schema(
       allowAdminAccess: { type: Boolean, default: true },
     },
 
+    // Feedback Settings
+    feedback: {
+      feedbackMode: { type: Boolean, default: false },
+      feedbackTitle: {
+        type: String,
+        default: "We Value Your Feedback",
+      },
+      feedbackMessage: {
+        type: String,
+        default:
+          "Please share your experience with SkyWay Travel Agency. Your feedback helps us improve our services.",
+      },
+      mandatoryForUsers: { type: Boolean, default: true },
+    },
+
     lastUpdated: { type: Date, default: Date.now },
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },

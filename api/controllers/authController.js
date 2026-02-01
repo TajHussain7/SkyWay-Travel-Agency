@@ -59,7 +59,7 @@ const login = async (req, res) => {
     }
 
     const user = await User.findOne({ email: email.toLowerCase() }).select(
-      "+password"
+      "+password",
     );
     if (!user) {
       return res.status(401).json({
@@ -173,6 +173,8 @@ const getMe = async (req, res) => {
           address: user.address || "",
           passport: user.passport || "",
           profileImage: user.profileImage || "",
+          feedbackSubmitted: user.feedbackSubmitted || false,
+          lastFeedbackDate: user.lastFeedbackDate || null,
           createdAt: user.createdAt,
         },
       },

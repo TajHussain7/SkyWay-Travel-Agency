@@ -26,7 +26,7 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
 );
 
 const ManageFlights = () => {
@@ -106,13 +106,13 @@ const ManageFlights = () => {
     const total = flightsData.length;
     const today = new Date().toDateString();
     const activeToday = flightsData.filter(
-      (flight) => new Date(flight.departureTime).toDateString() === today
+      (flight) => new Date(flight.departureTime).toDateString() === today,
     ).length;
     const routes = new Set(
-      flightsData.map((flight) => `${flight.origin}-${flight.destination}`)
+      flightsData.map((flight) => `${flight.origin}-${flight.destination}`),
     ).size;
     const delayed = flightsData.filter(
-      (flight) => flight.status === "delayed"
+      (flight) => flight.status === "delayed",
     ).length;
 
     setStats({
@@ -173,7 +173,7 @@ const ManageFlights = () => {
         min: Math.min(...allPrices),
         max: Math.max(...allPrices),
         avg: Math.round(
-          allPrices.reduce((a, b) => a + b, 0) / allPrices.length
+          allPrices.reduce((a, b) => a + b, 0) / allPrices.length,
         ),
       };
 
@@ -191,7 +191,7 @@ const ManageFlights = () => {
           flight.number?.toLowerCase().includes(searchTerm) ||
           flight.origin?.toLowerCase().includes(searchTerm) ||
           flight.destination?.toLowerCase().includes(searchTerm) ||
-          flight.airline?.toLowerCase().includes(searchTerm)
+          flight.airline?.toLowerCase().includes(searchTerm),
       );
     }
 
@@ -201,13 +201,14 @@ const ManageFlights = () => {
 
     if (filters.airline) {
       filtered = filtered.filter(
-        (flight) => flight.airline === filters.airline
+        (flight) => flight.airline === filters.airline,
       );
     }
 
     if (filters.route) {
       filtered = filtered.filter(
-        (flight) => `${flight.origin} → ${flight.destination}` === filters.route
+        (flight) =>
+          `${flight.origin} → ${flight.destination}` === filters.route,
       );
     }
 
@@ -293,7 +294,7 @@ const ManageFlights = () => {
       await axios.put(
         `/api/admin/flights/${selectedFlight._id}`,
         editFormData,
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       // Reload flights after update
@@ -313,15 +314,21 @@ const ManageFlights = () => {
         `/api/admin/flights/${deleteFlightId}`,
         {
           withCredentials: true,
-        }
+        },
       );
 
       if (response.data.success) {
+        alert("Flight deleted successfully!");
         closeDeleteModal();
         loadFlights();
       }
     } catch (error) {
       console.error("Error deleting flight:", error);
+      const errorMessage =
+        error.response?.data?.message ||
+        "Failed to delete flight. Please try again.";
+      alert(errorMessage);
+      closeDeleteModal();
     }
   };
 
@@ -521,11 +528,11 @@ const ManageFlights = () => {
                 Add New Flight
               </Link>
               <button
-                className="bg-purple-700 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-purple-800 transition-colors flex items-center gap-2 shadow-md"
-                onClick={() => {}}
+                className="bg-white text-primary px-6 py-2.5 rounded-lg font-semibold hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-md"
+                onClick={loadFlights}
               >
-                <i className="fas fa-upload"></i>
-                Import Flights
+                <i className="fas fa-sync"></i>
+                Refresh
               </button>
             </div>
           </div>
@@ -971,10 +978,10 @@ const ManageFlights = () => {
                               flight.status === "active"
                                 ? "bg-green-100 text-green-700"
                                 : flight.status === "delayed"
-                                ? "bg-yellow-100 text-yellow-700"
-                                : flight.status === "cancelled"
-                                ? "bg-red-100 text-red-700"
-                                : "bg-gray-100 text-gray-700"
+                                  ? "bg-yellow-100 text-yellow-700"
+                                  : flight.status === "cancelled"
+                                    ? "bg-red-100 text-red-700"
+                                    : "bg-gray-100 text-gray-700"
                             }`}
                           >
                             {flight.status}
@@ -1082,10 +1089,10 @@ const ManageFlights = () => {
                       selectedFlight.status === "active"
                         ? "bg-green-100 text-green-700"
                         : selectedFlight.status === "delayed"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : selectedFlight.status === "cancelled"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-gray-100 text-gray-700"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : selectedFlight.status === "cancelled"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-gray-100 text-gray-700"
                     }`}
                   >
                     {selectedFlight.status}
@@ -1334,7 +1341,7 @@ const ManageFlights = () => {
                       onChange={(e) =>
                         handleEditFormChange(
                           "price",
-                          parseFloat(e.target.value)
+                          parseFloat(e.target.value),
                         )
                       }
                     />
@@ -1350,7 +1357,7 @@ const ManageFlights = () => {
                       onChange={(e) =>
                         handleEditFormChange(
                           "totalSeats",
-                          parseInt(e.target.value)
+                          parseInt(e.target.value),
                         )
                       }
                     />
@@ -1366,7 +1373,7 @@ const ManageFlights = () => {
                       onChange={(e) =>
                         handleEditFormChange(
                           "availableSeats",
-                          parseInt(e.target.value)
+                          parseInt(e.target.value),
                         )
                       }
                     />

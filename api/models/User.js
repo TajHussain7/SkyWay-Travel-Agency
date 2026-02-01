@@ -75,10 +75,18 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    feedbackSubmitted: {
+      type: Boolean,
+      default: false,
+    },
+    lastFeedbackDate: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 userSchema.pre("save", async function (next) {

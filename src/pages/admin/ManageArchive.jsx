@@ -26,6 +26,8 @@ const ManageArchive = () => {
   const [showQueryModal, setShowQueryModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [queryResponse, setQueryResponse] = useState("");
+  const [sendingResponse, setSendingResponse] = useState(false);
 
   const fetchStats = async () => {
     try {
@@ -46,7 +48,7 @@ const ManageArchive = () => {
       setLoading(true);
       const response = await fetch(
         `${API_URL}/admin/archive/bookings?page=${page}&limit=${pagination.limit}`,
-        { credentials: "include" }
+        { credentials: "include" },
       );
       if (response.ok) {
         const data = await response.json();
@@ -65,7 +67,7 @@ const ManageArchive = () => {
       setLoading(true);
       const response = await fetch(
         `${API_URL}/admin/archive/flights?page=${page}&limit=${pagination.limit}`,
-        { credentials: "include" }
+        { credentials: "include" },
       );
       if (response.ok) {
         const data = await response.json();
@@ -137,6 +139,27 @@ const ManageArchive = () => {
   const handleUpdateArchivedFlight = async () => {
     if (!selectedFlight) return;
 
+    // Validate that departure time is in the future
+    const departureTime = new Date(flightFormData.departureTime);
+    const now = new Date();
+    // Give 1 minute tolerance to account for timezone issues and processing time
+    const oneMinuteFromNow = new Date(now.getTime() + 60000);
+
+    if (departureTime < oneMinuteFromNow) {
+      showNotification(
+        "error",
+        "Cannot make flight live with a past departure time. Please set a future date.",
+      );
+      return;
+    }
+
+    // Validate arrival time is after departure time
+    const arrivalTime = new Date(flightFormData.arrivalTime);
+    if (arrivalTime <= departureTime) {
+      showNotification("error", "Arrival time must be after departure time");
+      return;
+    }
+
     try {
       setActionLoading(selectedFlight._id);
 
@@ -155,13 +178,13 @@ const ManageArchive = () => {
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify(updateData),
-        }
+        },
       );
 
       if (response.ok) {
         showNotification(
           "success",
-          "Flight updated and restored successfully!"
+          "Flight updated and restored successfully!",
         );
         closeFlightEditModal();
         fetchArchivedFlights(pagination.page);
@@ -183,7 +206,7 @@ const ManageArchive = () => {
       setLoading(true);
       const response = await fetch(
         `${API_URL}/admin/archive/users?page=${page}&limit=${pagination.limit}`,
-        { credentials: "include" }
+        { credentials: "include" },
       );
       if (response.ok) {
         const data = await response.json();
@@ -202,7 +225,7 @@ const ManageArchive = () => {
       setLoading(true);
       const response = await fetch(
         `${API_URL}/admin/archive/feedback?page=${page}&limit=${pagination.limit}`,
-        { credentials: "include" }
+        { credentials: "include" },
       );
       if (response.ok) {
         const data = await response.json();
@@ -221,7 +244,7 @@ const ManageArchive = () => {
       setLoading(true);
       const response = await fetch(
         `${API_URL}/admin/archive/contact-queries?page=${page}&limit=${pagination.limit}`,
-        { credentials: "include" }
+        { credentials: "include" },
       );
       if (response.ok) {
         const data = await response.json();
@@ -267,7 +290,7 @@ const ManageArchive = () => {
         {
           method: "DELETE",
           credentials: "include",
-        }
+        },
       );
       if (response.ok) {
         showNotification("success", "User deleted permanently!");
@@ -315,7 +338,7 @@ const ManageArchive = () => {
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ status }),
-        }
+        },
       );
       if (response.ok) {
         showNotification("success", "Query status updated!");
@@ -328,6 +351,42 @@ const ManageArchive = () => {
       showNotification("error", "Error updating query");
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const sendQueryResponse = async () => {
+    if (!selectedQuery || !queryResponse.trim()) {
+      showNotification("error", "Please enter a response message");
+      return;
+    }
+
+    try {
+      setSendingResponse(true);
+      const response = await fetch(
+        `${API_URL}/admin/archive/contact-queries/${selectedQuery._id}/respond`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ response: queryResponse }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        showNotification("success", "Response sent successfully!");
+        setQueryResponse("");
+        setShowQueryModal(false);
+        fetchContactQueries(pagination.page);
+      } else {
+        showNotification("error", data.message || "Failed to send response");
+      }
+    } catch (error) {
+      console.error("Error sending response:", error);
+      showNotification("error", "Error sending response");
+    } finally {
+      setSendingResponse(false);
     }
   };
 
@@ -359,14 +418,14 @@ const ManageArchive = () => {
         {
           method: "DELETE",
           credentials: "include",
-        }
+        },
       );
 
       if (response.ok) {
         const data = await response.json();
         showNotification(
           "success",
-          `${data.message} (${data.deletedCount} items deleted)`
+          `${data.message} (${data.deletedCount} items deleted)`,
         );
         fetchStats();
 
@@ -514,7 +573,7 @@ const ManageArchive = () => {
       {/* Notification */}
       {notification && (
         <div
-          className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg ${
+          className={`fixed top-4 right-4 z-[9999] px-6 py-3 rounded-lg shadow-lg ${
             notification.type === "success"
               ? "bg-green-500 text-white"
               : "bg-red-500 text-white"
@@ -1084,10 +1143,10 @@ const ManageArchive = () => {
                                 item.type === "account_deletion"
                                   ? "bg-red-100 text-red-800"
                                   : item.type === "suggestion"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : item.type === "complaint"
-                                  ? "bg-orange-100 text-orange-800"
-                                  : "bg-gray-100 text-gray-800"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : item.type === "complaint"
+                                      ? "bg-orange-100 text-orange-800"
+                                      : "bg-gray-100 text-gray-800"
                               }`}
                             >
                               {item.type?.replace("_", " ")}
@@ -1110,7 +1169,7 @@ const ManageArchive = () => {
                               onClick={() =>
                                 updateFeedbackStatus(
                                   item._id,
-                                  item.status === "new" ? "read" : "resolved"
+                                  item.status === "new" ? "read" : "resolved",
                                 )
                               }
                               disabled={actionLoading === item._id}
@@ -1218,10 +1277,10 @@ const ManageArchive = () => {
                                 query.type === "account_recovery"
                                   ? "bg-purple-100 text-purple-800"
                                   : query.type === "booking"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : query.type === "complaint"
-                                  ? "bg-red-100 text-red-800"
-                                  : "bg-gray-100 text-gray-800"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : query.type === "complaint"
+                                      ? "bg-red-100 text-red-800"
+                                      : "bg-gray-100 text-gray-800"
                               }`}
                             >
                               {query.type?.replace("_", " ")}
@@ -1305,7 +1364,7 @@ const ManageArchive = () => {
       {/* Query Detail Modal */}
       {showQueryModal && selectedQuery && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="bg-gradient-to-r from-primary to-primary-dark text-white p-6">
               <div className="flex justify-between items-start">
                 <div>
@@ -1315,7 +1374,10 @@ const ManageArchive = () => {
                   </p>
                 </div>
                 <button
-                  onClick={() => setShowQueryModal(false)}
+                  onClick={() => {
+                    setShowQueryModal(false);
+                    setQueryResponse("");
+                  }}
                   className="text-white hover:text-gray-200"
                 >
                   <i className="fas fa-times text-xl"></i>
@@ -1330,11 +1392,17 @@ const ManageArchive = () => {
                   {selectedQuery.type?.replace("_", " ")}
                 </span>
               </div>
+
+              {/* Original Query */}
               <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                  <i className="fas fa-envelope mr-2"></i>Customer Message
+                </h4>
                 <p className="text-gray-700 whitespace-pre-wrap">
                   {selectedQuery.message}
                 </p>
               </div>
+
               <div className="text-sm text-gray-500 mb-4">
                 <p>
                   <i className="fas fa-calendar mr-2"></i>
@@ -1347,13 +1415,56 @@ const ManageArchive = () => {
                   </p>
                 )}
               </div>
-              <div className="flex gap-2">
+
+              {/* Admin Response Section */}
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                  <i className="fas fa-reply mr-2"></i>Send Response
+                </h4>
+                <textarea
+                  value={queryResponse}
+                  onChange={(e) => setQueryResponse(e.target.value)}
+                  placeholder="Type your response here... This will be sent to the customer's email."
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                  rows="6"
+                  disabled={sendingResponse}
+                ></textarea>
+                <p className="text-xs text-gray-500 mt-2">
+                  <i className="fas fa-info-circle mr-1"></i>
+                  Your response will be sent via email with a professional
+                  template.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 mt-6">
+                <button
+                  onClick={sendQueryResponse}
+                  disabled={sendingResponse || !queryResponse.trim()}
+                  className="flex-1 bg-primary hover:bg-primary-dark text-white py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {sendingResponse ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin"></i>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-paper-plane"></i>
+                      Send Response via Email
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Status Update Buttons */}
+              <div className="flex gap-2 mt-3">
                 <button
                   onClick={() =>
                     updateQueryStatus(selectedQuery._id, "in_progress")
                   }
                   disabled={actionLoading === selectedQuery._id}
-                  className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50 text-sm"
                 >
                   Mark In Progress
                 </button>
@@ -1362,7 +1473,7 @@ const ManageArchive = () => {
                     updateQueryStatus(selectedQuery._id, "resolved")
                   }
                   disabled={actionLoading === selectedQuery._id}
-                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 text-sm"
                 >
                   Mark Resolved
                 </button>
@@ -1391,11 +1502,22 @@ const ManageArchive = () => {
 
             <div className="p-6 space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <p className="text-sm text-blue-800">
+                <p className="text-sm text-blue-800 font-medium mb-2">
                   <i className="fas fa-info-circle mr-2"></i>
-                  Updating this flight will unarchive it and make it live on the
-                  website again.
+                  Important: Making Flight Live
                 </p>
+                <ul className="text-sm text-blue-700 space-y-1 ml-6 list-disc">
+                  <li>
+                    This will unarchive the flight and make it visible on the
+                    website
+                  </li>
+                  <li>
+                    <strong>
+                      Departure time must be set to a future date/time
+                    </strong>
+                  </li>
+                  <li>Flight will be immediately available for booking</li>
+                </ul>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1453,7 +1575,10 @@ const ManageArchive = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Departure Time *
+                    Departure Time *{" "}
+                    <span className="text-red-600">
+                      (Must be in the future)
+                    </span>
                   </label>
                   <input
                     type="datetime-local"
@@ -1462,6 +1587,7 @@ const ManageArchive = () => {
                     onChange={(e) =>
                       handleFlightFormChange("departureTime", e.target.value)
                     }
+                    min={new Date().toISOString().slice(0, 16)}
                   />
                 </div>
                 <div>
@@ -1488,7 +1614,7 @@ const ManageArchive = () => {
                     onChange={(e) =>
                       handleFlightFormChange(
                         "price",
-                        parseFloat(e.target.value)
+                        parseFloat(e.target.value),
                       )
                     }
                   />
@@ -1504,7 +1630,7 @@ const ManageArchive = () => {
                     onChange={(e) =>
                       handleFlightFormChange(
                         "totalSeats",
-                        parseInt(e.target.value)
+                        parseInt(e.target.value),
                       )
                     }
                   />
@@ -1520,7 +1646,7 @@ const ManageArchive = () => {
                     onChange={(e) =>
                       handleFlightFormChange(
                         "availableSeats",
-                        parseInt(e.target.value)
+                        parseInt(e.target.value),
                       )
                     }
                   />
